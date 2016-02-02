@@ -1,0 +1,12 @@
+
+Nov  3 21:21 [blg0966red_multi.fits[*,1,7]]: BLG0966
+    center      cont      flux       eqw      core     gfwhm     lfwhm
+   9150.39  1454.742  -41035.3     29.24
+
+Nov  4  7:35 [blg0966red_multi.fits[*,4,7]]: BLG0966
+    center      cont      flux       eqw      core     gfwhm     lfwhm
+  8690.382  182.6753  -435.929    -3.207
+
+Nov 12 15:36 [hd142527red_multi.fits[*,4,7]]: HD142527
+    center      cont      flux       eqw      core     gfwhm     lfwhm
+  8509.945  95431.73   319194.     -3.78
