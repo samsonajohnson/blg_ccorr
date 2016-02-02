@@ -128,8 +128,8 @@ if __name__ == '__main__':
 
 
 
-    indmin = 5000
-    indmax = 14999
+    indmin = 500
+    indmax = 19499
     ipdb.set_trace()
     autocorr = np.correlate(hdspline(expspace_arr[t_order][indmin:indmax]),\
                                 hdspline(expspace_arr[t_order]),mode='same')
