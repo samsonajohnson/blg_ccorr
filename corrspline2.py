@@ -61,6 +61,7 @@ class multi_spec:
 #        for order in range(self.data.shape[0]):
 #            self.spline(order)
 #        ipdb.set_trace()
+#        self.pickle()
 
     def spline(self,order):
         self.splines.append(scipy.interpolate.interp1d(\
@@ -159,14 +160,20 @@ if __name__ == '__main__':
 
     s1spline = scipy.interpolate.interp1d(star1.wavelens[t_order],star1.cs_data[t_order],kind='cubic')
     s2spline = scipy.interpolate.interp1d(star2.wavelens[t_order],star2.cs_data[t_order],kind='cubic')
-
+    
+    #going to ignore the 100 points on either end to avoid these potentially 
+    #bad points
+    edgnore = 50
     indmin = 499
     indmax = 19499
     ipdb.set_trace()
-    autocorr = np.correlate(s1spline(expspace_arr[t_order][indmin:indmax]),\
-                                s1spline(expspace_arr[t_order]),mode='same')
-    ccorr = np.correlate(s1spline(expspace_arr[t_order][indmin:indmax]),\
-                             s2spline(expspace_arr[t_order]),mode='same')
+    autocorr = np.correlate(\
+        s1spline(expspace_arr[t_order][edgnore+indmin:indmax-edgnore+1]),\
+            s1spline(expspace_arr[t_order][edgnore:-edgnore]),mode='same')
+    ccorr = np.correlate(\
+        s1spline(expspace_arr[t_order][edgnore+indmin:indmax-edgnore+1]),\
+            s2spline(expspace_arr[t_order][edgnore:-edgnore]),mode='same')
+
     plt.plot((np.arange(len(autocorr))-len(autocorr)/2)*vstep/1000.,autocorr,'b')
     plt.xlabel('Velcoity [km/s]')
     plt.show()
@@ -174,7 +181,7 @@ if __name__ == '__main__':
     plt.xlabel('Velcoity [km/s]')
     pltmax = np.max(ccorr[9499:10499])+.1*np.max(ccorr[9499:10499])
     pltmin = np.min(ccorr[9499:10499])-.1*np.min(ccorr[9499:10499])
-    plt.axis([-500*vstep/1000, 500*vstep/1000,pltmin,pltmax])
+#    plt.axis([-500*vstep/1000, 500*vstep/1000,pltmin,pltmax])
     plt.show()
     print autocorr.argmax()
     print ccorr.argmax()
