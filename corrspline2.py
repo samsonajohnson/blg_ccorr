@@ -4,6 +4,7 @@ import scipy
 import scipy.interpolate
 from astropy.io import fits
 import ipdb
+import pickle
 
 
 class multi_spec:
@@ -39,17 +40,45 @@ class multi_spec:
 
         #continuum subtract the data, fitting a cubic
         for order in range(self.data.shape[0]):
-            coeffs = np.polyfit(self.wavelens[order],self.data[order],3)
+            coeffs = np.polyfit(self.wavelens[order],self.data[order],5)
             self.cs_data.append(self.data[order]\
-                                    -(coeffs[3]\
-                                          +coeffs[2]*self.data[order]\
-                                          +coeffs[1]*self.data[order]**2\
-                                          +coeffs[0]*self.data[order]**3))
+                                    -(coeffs[5]\
+                                          +coeffs[4]*self.wavelens[order]\
+                                          +coeffs[3]*self.wavelens[order]**2\
+                                          +coeffs[2]*self.wavelens[order]**3\
+                                          +coeffs[1]*self.wavelens[order]**4\
+                                          +coeffs[0]*self.wavelens[order]**5))
+            #a catch to see if the continuum subtraction is still returning 
+            #weird results
             if False in self.cs_data[order]==self.cs_data[order]:
                 ipdb.set_trace()
             if float('Inf') in self.cs_data[order]:
                 ipdb.set_trace()
         self.cs_data = np.array(self.cs_data)
+        
+        #define splines list, should probably go up higher
+        self.splines = []
+#        for order in range(self.data.shape[0]):
+#            self.spline(order)
+#        ipdb.set_trace()
+
+    def spline(self,order):
+        self.splines.append(scipy.interpolate.interp1d(\
+                self.wavelens[order],\
+                    self.cs_data[order],\
+                    kind = 'cubic'))
+
+    def pickle(self):
+        f = file('./test.pk','wb')
+        pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+        f.close()
+
+    def unpickle(self):
+        with file('test_file', 'rb') as f:
+            return pickle.load(f)
+
+                    
+        
         
                                 
                                 
@@ -75,7 +104,7 @@ if __name__ == '__main__':
     hd = multi_spec('./hd142527red_multi.fits')
 
     #set star1 and star2 
-    star1 = hr
+    star1 = blg
     star2 = hd
 
     #initializing the arrays(lists at first)
@@ -121,25 +150,31 @@ if __name__ == '__main__':
 #    print lnstep,vstep
 
 
-    t_order = 4
-    blgspline = scipy.interpolate.interp1d(blg.wavelens[t_order],blg.cs_data[t_order],kind='cubic')
-    hrspline = scipy.interpolate.interp1d(hr.wavelens[t_order],hr.data[t_order],kind='cubic')
-    hdspline = scipy.interpolate.interp1d(hd.wavelens[t_order],hd.data[t_order],kind='cubic')
+    t_order = 20
+
+#    blgspline = scipy.interpolate.interp1d(blg.wavelens[t_order],blg.cs_data[t_order],kind='cubic')
+#    hrspline = scipy.interpolate.interp1d(hr.wavelens[t_order],hr.cs_data[t_order],kind='cubic')
+#    hdspline = scipy.interpolate.interp1d(hd.wavelens[t_order],hd.cs_data[t_order],kind='cubic')
 
 
+    s1spline = scipy.interpolate.interp1d(star1.wavelens[t_order],star1.cs_data[t_order],kind='cubic')
+    s2spline = scipy.interpolate.interp1d(star2.wavelens[t_order],star2.cs_data[t_order],kind='cubic')
 
-    indmin = 500
+    indmin = 499
     indmax = 19499
     ipdb.set_trace()
-    autocorr = np.correlate(hdspline(expspace_arr[t_order][indmin:indmax]),\
-                                hdspline(expspace_arr[t_order]),mode='same')
-    ccorr = np.correlate(hdspline(expspace_arr[t_order][indmin:indmax]),\
-                             hrspline(expspace_arr[t_order]),mode='same')
+    autocorr = np.correlate(s1spline(expspace_arr[t_order][indmin:indmax]),\
+                                s1spline(expspace_arr[t_order]),mode='same')
+    ccorr = np.correlate(s1spline(expspace_arr[t_order][indmin:indmax]),\
+                             s2spline(expspace_arr[t_order]),mode='same')
     plt.plot((np.arange(len(autocorr))-len(autocorr)/2)*vstep/1000.,autocorr,'b')
     plt.xlabel('Velcoity [km/s]')
     plt.show()
     plt.plot((np.arange(len(ccorr))-len(ccorr)/2)*vstep/1000.,ccorr,'b')
     plt.xlabel('Velcoity [km/s]')
+    pltmax = np.max(ccorr[9499:10499])+.1*np.max(ccorr[9499:10499])
+    pltmin = np.min(ccorr[9499:10499])-.1*np.min(ccorr[9499:10499])
+    plt.axis([-500*vstep/1000, 500*vstep/1000,pltmin,pltmax])
     plt.show()
     print autocorr.argmax()
     print ccorr.argmax()
