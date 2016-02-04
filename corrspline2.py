@@ -105,7 +105,7 @@ if __name__ == '__main__':
     hd = multi_spec('./hd142527red_multi.fits')
 
     #set star1 and star2 
-    star1 = blg
+    star1 = hr
     star2 = hd
 
     #initializing the arrays(lists at first)
@@ -135,12 +135,12 @@ if __name__ == '__main__':
         #spaced
         expspace_arr.append(np.exp(exppowers_arr[order]))
         
-        print (np.log(blg.wavelens[order].max())-\
-                   np.log(blg.wavelens[order].min()))/2048
-        print  (exppowers_arr[order].max()-exppowers_arr[order].min())\
-            /len(exppowers_arr[order])*3e8
-    ipdb.set_trace()
-    #convert to numpy arrays, easiser to deal with
+#        print (np.log(blg.wavelens[order].max())-\
+#                   np.log(blg.wavelens[order].min()))/2048
+#        print  (exppowers_arr[order].max()-exppowers_arr[order].min())\
+#            /len(exppowers_arr[order])*3e8
+
+
     exppowers_arr = np.array(exppowers_arr)
     expspace_arr = np.array(expspace_arr)
 
@@ -151,28 +151,60 @@ if __name__ == '__main__':
 #    print lnstep,vstep
 
 
-    t_order = 20
+
+    
 
 #    blgspline = scipy.interpolate.interp1d(blg.wavelens[t_order],blg.cs_data[t_order],kind='cubic')
 #    hrspline = scipy.interpolate.interp1d(hr.wavelens[t_order],hr.cs_data[t_order],kind='cubic')
 #    hdspline = scipy.interpolate.interp1d(hd.wavelens[t_order],hd.cs_data[t_order],kind='cubic')
-
-
-    s1spline = scipy.interpolate.interp1d(star1.wavelens[t_order],star1.cs_data[t_order],kind='cubic')
-    s2spline = scipy.interpolate.interp1d(star2.wavelens[t_order],star2.cs_data[t_order],kind='cubic')
     
-    #going to ignore the 100 points on either end to avoid these potentially 
-    #bad points
-    edgnore = 50
-    indmin = 499
-    indmax = 19499
-    ipdb.set_trace()
-    autocorr = np.correlate(\
-        s1spline(expspace_arr[t_order][edgnore+indmin:indmax-edgnore+1]),\
-            s1spline(expspace_arr[t_order][edgnore:-edgnore]),mode='same')
-    ccorr = np.correlate(\
-        s1spline(expspace_arr[t_order][edgnore+indmin:indmax-edgnore+1]),\
-            s2spline(expspace_arr[t_order][edgnore:-edgnore]),mode='same')
+
+    autocorr_arr = []
+    ccorr_arr = []
+
+    use_prev = raw_input('Load existing?(y or n)\n')
+    if use_prev == 'n':
+        for order in range(star1.data.shape[0]):
+            print('Working on order '+str(1+order)+'...\n')
+            #this is where all the time is going on. these splines! tried to 
+            #figure a way to save and recall them but have had no luck
+            s1spline = scipy.interpolate.interp1d(\
+                star1.wavelens[order],star1.cs_data[order],kind='cubic')
+            s2spline = scipy.interpolate.interp1d(\
+                star2.wavelens[order],star2.cs_data[order],kind='cubic')
+    
+            #going to ignore the 100 points on either end to avoid these 
+            #bad points
+            edgnore = 50
+            indmin = 499
+            indmax = 19499
+            #ipdb.set_trace()
+            autocorr = np.correlate(\
+                s1spline(expspace_arr[order][edgnore+indmin:\
+                                                   indmax-edgnore+1]),\
+                    s1spline(expspace_arr[order][edgnore:\
+                                                       -edgnore]),mode='same')
+            ccorr = np.correlate(\
+                s1spline(expspace_arr[order][edgnore+indmin:\
+                                                   indmax-edgnore+1]),\
+                    s2spline(expspace_arr[order][edgnore:\
+                                                       -edgnore]),mode='same')
+
+            autocorr_arr.append(autocorr)
+            ccorr_arr.append(ccorr)
+
+#            autocorr_arr = np.array(autocorr_arr)
+#            ccorr_arr = np.array(ccorr_arr)
+            #save the resulting CCF's
+            np.save('./autocorr_arr_cs_data.npy',autocorr_arr)
+            np.save('./ccorr_arr_cs_data.npy',ccorr_arr)
+    
+    
+
+        ipdb.set_trace()
+    if use_prev == 'y':
+        autocorr_arr = np.load('./autocorr_arr_cs_data.npy')
+        ccorr_arr = np.load('./ccorr_arr_cs_data.npy')
 
     plt.plot((np.arange(len(autocorr))-len(autocorr)/2)*vstep/1000.,autocorr,'b')
     plt.xlabel('Velcoity [km/s]')
