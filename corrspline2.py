@@ -219,8 +219,8 @@ if __name__ == '__main__':
 
     prod = np.ones(len(ccorr_arr[0]))
     for order in range(star1.data.shape[0]):
-        prod *= (1 - (ccorr_arr[order]/np.median(ccorr_arr[order]))**2)
-    maxlike = 1 - (prod**(1./star1.data.shape[0]))
+        prod *= (1. - (ccorr_arr[order])**2)#/np.median(ccorr_arr[order]))**2)
+    maxlike = 1. - (prod**(1./star1.data.shape[0]))
 
     plt.plot((np.arange(len(ave))-len(ave)/2)*vstep/1000.,maxlike)
     plt.xlabel('Velcoity [km/s]')
