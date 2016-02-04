@@ -1,0 +1,14 @@
+(iptest
+test_class
+p0
+(dp1
+S'arg1'
+p2
+I1
+sS'arg2'
+p3
+I2
+sS'arg3'
+p4
+I3
+sb.
