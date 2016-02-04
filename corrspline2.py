@@ -5,7 +5,7 @@ import scipy.interpolate
 from astropy.io import fits
 import ipdb
 import pickle
-
+import dill
 
 class multi_spec:
     def __init__(self,fits_name,pixels = 2048):
@@ -58,16 +58,26 @@ class multi_spec:
         
         #define splines list, should probably go up higher
         self.splines = []
-#        for order in range(self.data.shape[0]):
-#            self.spline(order)
-#        ipdb.set_trace()
-#        self.pickle()
+        self.cs_splines = []
+        for order in range(self.data.shape[0]):
+            print('Working on spline '+str(1+order)+' of '+self.name)
+            self.splines.append(self.spline(order))
+            self.cs_splines.append(self.cs_spline(order))
+
+
+
 
     def spline(self,order):
-        self.splines.append(scipy.interpolate.interp1d(\
+        return scipy.interpolate.interp1d(\
+                self.wavelens[order],\
+                    self.data[order],\
+                    kind = 'cubic')
+
+    def cs_spline(self,order):
+        return scipy.interpolate.interp1d(\
                 self.wavelens[order],\
                     self.cs_data[order],\
-                    kind = 'cubic'))
+                    kind = 'cubic')
 
     def pickle(self):
         f = file('./test.pk','wb')
@@ -98,12 +108,26 @@ if __name__ == '__main__':
     #Only doing order with Ca lines right now
     numpoints = 20000.
 
-
+    use_prev = raw_input('Load past multi_specs? (y or n)\n')
     #read in the fits files from the stars we want
-    blg = multi_spec('./blg0966red_multi.fits')
-    hr = multi_spec('./hr4963red_multi.fits')
-    hd = multi_spec('./hd142527red_multi.fits')
+    if use_prev == 'n':
+        blg = multi_spec('./blg0966red_multi.fits')
+        hr = multi_spec('./hr4963red_multi.fits')
+        hd = multi_spec('./hd142527red_multi.fits')
+        save_new = raw_input('save these mutli_specs?(y or n)\n')
+        if save_new == 'y':
+            ipdb.set_trace()
+            for star in [blg,hr,hd]:
+                dillfile = open('./'+star.name+'.pkl','wb')
+                dill.dump(star,dillfile)
+                dillfile.close()
+    else:
+        blg = dill.load(open('./BLG0966.pkl','rb'))
+        hr = dill.load(open('./HR4963.pkl','rb'))
+        hd = dill.load(open('./HD142527.pkl','rb'))
 
+            
+    ipdb.set_trace()
     #set star1 and star2 
     star1 = hr
     star2 = hd
@@ -118,13 +142,11 @@ if __name__ == '__main__':
         #in the spline of the order from either star, e.g. it tries to
         #evaluate the spline at a point outside the range, which is a nogo
 
-        #find the minimum of the lowest wavelengths in this order from 
+        #find the maximum of the lowest wavelengths in this order from 
         #either star
         minwl = np.max([star1.wavelens[order][0],star2.wavelens[order][0]])\
             +.00001
-        #now the bigger of the minimums
-        if star1.name == 'HR4963' and order == 3:
-           ipdb.set_trace()
+        #now the smaller of the maximums
         maxwl = np.min([star1.wavelens[order][-1],star2.wavelens[order][-1]])\
             -.00001
 
@@ -162,6 +184,51 @@ if __name__ == '__main__':
     autocorr_arr = []
     ccorr_arr = []
 
+    #going to ignore the 100 points on either end to avoid these 
+    #bad points
+    edgnore = 50
+    indmin = 499
+    indmax = 19499
+
+    ipdb.set_trace()
+    for order in range(star1.data.shape[0]):
+        autocorr = np.correlate(\
+            star1.cs_splines[order](expspace_arr[order][edgnore+indmin:\
+                                             indmax-edgnore+1]),\
+                star1.cs_splines[order](expspace_arr[order][edgnore:\
+                                                 -edgnore]),mode='same')
+        ccorr = np.correlate(\
+            star1.splines[order](expspace_arr[order][edgnore+indmin:\
+                                             indmax-edgnore+1]),\
+                star2.splines[order](expspace_arr[order][edgnore:\
+                                                 -edgnore]),mode='same')
+        
+        autocorr_arr.append(autocorr)
+        ccorr_arr.append(ccorr)
+    ipdb.set_trace()
+    for order in np.arange(star1.data.shape[0]/2):
+        plt.plot((np.arange(len(autocorr_arr[order]))\
+                      -len(autocorr_arr[order])/2)*vstep/1000.,\
+                     autocorr_arr[order],label=order)
+    plt.xlabel('Velcoity [km/s]')
+#    pltmax = np.max(ccorr[9499:10499])+.1*np.max(ccorr[9499:10499])
+#    pltmin = np.min(ccorr[9499:10499])-.1*np.min(ccorr[9499:10499])
+#    plt.axis([-500*vstep/1000, 500*vstep/1000,pltmin,pltmax])
+    plt.legend()
+    plt.show()
+    for order in np.arange(star1.data.shape[0]/2):
+        plt.plot((np.arange(len(ccorr_arr[order]))\
+                      -len(ccorr_arr[order])/2)*vstep/1000.,\
+                     ccorr_arr[order],label=order)
+    plt.xlabel('Velcoity [km/s]')
+    plt.legend()
+#    pltmax = np.max(ccorr[9499:10499])+.1*np.max(ccorr[9499:10499])
+#    pltmin = np.min(ccorr[9499:10499])-.1*np.min(ccorr[9499:10499])
+#    plt.axis([-500*vstep/1000, 500*vstep/1000,pltmin,pltmax])
+#    plt.axis
+    plt.show()
+        
+    """
     use_prev = raw_input('Load existing?(y or n)\n')
     if use_prev == 'n':
         for order in range(star1.data.shape[0]):
@@ -198,13 +265,13 @@ if __name__ == '__main__':
             #save the resulting CCF's
             np.save('./autocorr_arr_cs_data.npy',autocorr_arr)
             np.save('./ccorr_arr_cs_data.npy',ccorr_arr)
-    
+    """
     
 
-        ipdb.set_trace()
-    if use_prev == 'y':
-        autocorr_arr = np.load('./autocorr_arr_cs_data.npy')
-        ccorr_arr = np.load('./ccorr_arr_cs_data.npy')
+    ipdb.set_trace()
+    #if use_prev == 'y':
+    #    autocorr_arr = np.load('./autocorr_arr_cs_data.npy')
+    #    ccorr_arr = np.load('./ccorr_arr_cs_data.npy')
 
     plt.plot((np.arange(len(autocorr))-len(autocorr)/2)*vstep/1000.,autocorr,'b')
     plt.xlabel('Velcoity [km/s]')
