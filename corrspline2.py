@@ -198,15 +198,36 @@ if __name__ == '__main__':
                 star1.cs_splines[order](expspace_arr[order][edgnore:\
                                                  -edgnore]),mode='same')
         ccorr = np.correlate(\
-            star1.splines[order](expspace_arr[order][edgnore+indmin:\
+            star1.cs_splines[order](expspace_arr[order][edgnore+indmin:\
                                              indmax-edgnore+1]),\
-                star2.splines[order](expspace_arr[order][edgnore:\
+                star2.cs_splines[order](expspace_arr[order][edgnore:\
                                                  -edgnore]),mode='same')
         
         autocorr_arr.append(autocorr)
         ccorr_arr.append(ccorr)
+    
+    #attempt at zucker
     ipdb.set_trace()
-    for order in np.arange(star1.data.shape[0]/2):
+    sum = np.zeros(len(ccorr_arr[0]))
+    for order in range(star1.data.shape[0]):
+        sum += ccorr_arr[order]#/np.median(ccorr_arr[order])
+    ave = sum/float(star1.data.shape[0])
+    plt.plot((np.arange(len(ave))-len(ave)/2)*vstep/1000.,ave)
+    plt.xlabel('Velcoity [km/s]')
+    plt.show()
+    ipdb.set_trace()
+
+    prod = np.ones(len(ccorr_arr[0]))
+    for order in range(star1.data.shape[0]):
+        prod *= (1 - (ccorr_arr[order]/np.median(ccorr_arr[order]))**2)
+    maxlike = 1 - (prod**(1./star1.data.shape[0]))
+
+    plt.plot((np.arange(len(ave))-len(ave)/2)*vstep/1000.,maxlike)
+    plt.xlabel('Velcoity [km/s]')
+    plt.show()
+    
+    ipdb.set_trace()
+    for order in (np.arange(star1.data.shape[0]/2)):#+star1.data.shape[0]/2):
         plt.plot((np.arange(len(autocorr_arr[order]))\
                       -len(autocorr_arr[order])/2)*vstep/1000.,\
                      autocorr_arr[order],label=order)
@@ -216,7 +237,7 @@ if __name__ == '__main__':
 #    plt.axis([-500*vstep/1000, 500*vstep/1000,pltmin,pltmax])
     plt.legend()
     plt.show()
-    for order in np.arange(star1.data.shape[0]/2):
+    for order in (np.arange(star1.data.shape[0]/2)):#+star1.data.shape[0]/2):
         plt.plot((np.arange(len(ccorr_arr[order]))\
                       -len(ccorr_arr[order])/2)*vstep/1000.,\
                      ccorr_arr[order],label=order)
