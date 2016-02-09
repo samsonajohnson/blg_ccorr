@@ -39,21 +39,25 @@ class multi_spec:
         self.wavelens = np.array(self.wavelens)
 
         #continuum subtract the data, fitting a cubic
+#        ipdb.set_trace()
         for order in range(self.data.shape[0]):
-            coeffs = np.polyfit(self.wavelens[order],self.data[order],5)
-            temp_cs_arr = (self.data[order]-(coeffs[5]\
-                      +coeffs[4]*self.wavelens[order]\
-                      +coeffs[3]*self.wavelens[order]**2\
-                      +coeffs[2]*self.wavelens[order]**3\
-                      +coeffs[1]*self.wavelens[order]**4\
-                      +coeffs[0]*self.wavelens[order]**5))
-            self.cs_data.append(temp_cs_arr/np.median(temp_cs_arr))
+            coeffs = np.polyfit(self.wavelens[order],self.data[order]\
+                                    /np.median(self.data[order]),5)
+            temp_cs_arr = (self.data[order]/np.median(self.data[order])\
+                               -(coeffs[5]\
+                                     +coeffs[4]*self.wavelens[order]\
+                                     +coeffs[3]*self.wavelens[order]**2\
+                                     +coeffs[2]*self.wavelens[order]**3\
+                                     +coeffs[1]*self.wavelens[order]**4\
+                                     +coeffs[0]*self.wavelens[order]**5))
+            self.cs_data.append(temp_cs_arr)
                                           
             #a catch to see if the continuum subtraction is still returning 
             #weird results
-            if False in self.cs_data[order]==self.cs_data[order]:
+            if np.isnan(np.min(self.cs_data[order])):
                 ipdb.set_trace()
-            if float('Inf') in self.cs_data[order]:
+            if np.isinf(np.max(self.cs_data[order])) or \
+                    np.isinf(np.min(self.cs_data[order])):
                 ipdb.set_trace()
         self.cs_data = np.array(self.cs_data)
         
@@ -123,14 +127,14 @@ if __name__ == '__main__':
                 dill.dump(star,dillfile)
                 dillfile.close()
     else:
-        blg = dill.load(open('./BLG0966.pkl','rb'))
-        hr = dill.load(open('./HR4963.pkl','rb'))
-        hd = dill.load(open('./HD142527.pkl','rb'))
+        blg = dill.load(open('./BLG0966_meddiv.pkl','rb'))
+        hr = dill.load(open('./HR4963_meddiv.pkl','rb'))
+        hd = dill.load(open('./HD142527_meddiv.pkl','rb'))
 
             
     ipdb.set_trace()
     #set star1 and star2 
-    star1 = blg
+    star1 = hr
     star2 = hd
 
     #initializing the arrays(lists at first)
@@ -192,9 +196,9 @@ if __name__ == '__main__':
     ipdb.set_trace()
     for order in range(star1.data.shape[0]):
         autocorr = np.correlate(\
-            star1.splines[order](expspace_arr[order][edgnore+indmin:\
+            star1.cs_splines[order](expspace_arr[order][edgnore+indmin:\
                                              indmax-edgnore+1]),\
-                star1.splines[order](expspace_arr[order][edgnore:\
+                star1.cs_splines[order](expspace_arr[order][edgnore:\
                                                  -edgnore]),mode='same')
         ccorr = np.correlate(\
             star1.cs_splines[order](expspace_arr[order][edgnore+indmin:\
@@ -209,7 +213,7 @@ if __name__ == '__main__':
     ipdb.set_trace()
     sum = np.zeros(len(ccorr_arr[0]))
     for order in range(star1.data.shape[0]):
-        sum += ccorr_arr[order]#/np.median(ccorr_arr[order])
+        sum += autocorr_arr[order]#/np.median(ccorr_arr[order])
 #        plt.plot((np.arange(len(sum))-len(sum)/2)*vstep/1000.,sum/order)
 #        plt.show()
     ave = sum/float(star1.data.shape[0])
@@ -219,8 +223,10 @@ if __name__ == '__main__':
     ipdb.set_trace()
 
     prod = np.ones(len(ccorr_arr[0]))
+    ipdb.set_trace()
     for order in range(star1.data.shape[0]):
-        prod *= (1. - (ccorr_arr[order])**2)#/np.median(ccorr_arr[order]))**2)
+        print np.max(prod)
+        prod *= (1. - (autocorr_arr[order])**2)
     maxlike = 1. - (prod**(1./star1.data.shape[0]))
 
     plt.plot((np.arange(len(ave))-len(ave)/2)*vstep/1000.,maxlike)
