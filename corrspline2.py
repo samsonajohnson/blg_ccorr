@@ -42,8 +42,8 @@ class multi_spec:
 #        ipdb.set_trace()
         for order in range(self.data.shape[0]):
             coeffs = np.polyfit(self.wavelens[order],self.data[order]\
-                                    /np.median(self.data[order]),5)
-            temp_cs_arr = (self.data[order]/np.median(self.data[order])\
+                                    /np.max(self.data[order]),5)
+            temp_cs_arr = (self.data[order]/np.max(self.data[order])\
                                -(coeffs[5]\
                                      +coeffs[4]*self.wavelens[order]\
                                      +coeffs[3]*self.wavelens[order]**2\
@@ -100,8 +100,11 @@ class multi_spec:
                                 
 
 def corr(spec1, spec2, min=None, max=None):
-    return np.correlate(spline1(expspace[indmin:indmax]),\
-                            spline2(expspace),mode='same')
+    conv = np.convolve(spec1,spec2,mode='same')
+    squaresum1 = np.sum(spec1**2)
+    squaresum2 = np.sum(spec2**2)
+    return conv/np.sqrt(squaresum1*squaresum2)
+    pass
 
 
 if __name__ == '__main__':
@@ -123,13 +126,13 @@ if __name__ == '__main__':
         if save_new == 'y':
             ipdb.set_trace()
             for star in [blg,hr,hd]:
-                dillfile = open('./'+star.name+'_meddiv.pkl','wb')
+                dillfile = open('./'+star.name+'_maxdiv.pkl','wb')
                 dill.dump(star,dillfile)
                 dillfile.close()
     else:
-        blg = dill.load(open('./BLG0966_meddiv.pkl','rb'))
-        hr = dill.load(open('./HR4963_meddiv.pkl','rb'))
-        hd = dill.load(open('./HD142527_meddiv.pkl','rb'))
+        blg = dill.load(open('./BLG0966_maxdiv.pkl','rb'))
+        hr = dill.load(open('./HR4963_maxdiv.pkl','rb'))
+        hd = dill.load(open('./HD142527_maxdiv.pkl','rb'))
 
             
     ipdb.set_trace()
@@ -195,6 +198,7 @@ if __name__ == '__main__':
 
     ipdb.set_trace()
     for order in range(star1.data.shape[0]):
+        
         autocorr = np.correlate(\
             star1.cs_splines[order](expspace_arr[order][edgnore+indmin:\
                                              indmax-edgnore+1]),\
