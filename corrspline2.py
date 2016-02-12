@@ -42,8 +42,8 @@ class multi_spec:
 #        ipdb.set_trace()
         for order in range(self.data.shape[0]):
             coeffs = np.polyfit(self.wavelens[order],self.data[order]\
-                                    /np.max(self.data[order]),5)
-            temp_cs_arr = (self.data[order]/np.max(self.data[order])\
+                                    /np.sum(self.data[order]),5)
+            temp_cs_arr = (self.data[order]/np.sum(self.data[order])\
                                -(coeffs[5]\
                                      +coeffs[4]*self.wavelens[order]\
                                      +coeffs[3]*self.wavelens[order]**2\
@@ -126,7 +126,7 @@ if __name__ == '__main__':
         if save_new == 'y':
             ipdb.set_trace()
             for star in [blg,hr,hd]:
-                dillfile = open('./'+star.name+'_maxdiv.pkl','wb')
+                dillfile = open('./'+star.name+'_norm.pkl','wb')
                 dill.dump(star,dillfile)
                 dillfile.close()
     else:
