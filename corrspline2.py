@@ -130,15 +130,17 @@ if __name__ == '__main__':
                 dill.dump(star,dillfile)
                 dillfile.close()
     else:
-        blg = dill.load(open('./BLG0966_maxdiv.pkl','rb'))
-        hr = dill.load(open('./HR4963_maxdiv.pkl','rb'))
-        hd = dill.load(open('./HD142527_maxdiv.pkl','rb'))
+        suffix = '_maxdiv'
+        blg = dill.load(open('./BLG0966'+suffix+'.pkl','rb'))
+        hr = dill.load(open('./HR4963'+suffix+'.pkl','rb'))
+        hd = dill.load(open('./HD142527'+suffix+'.pkl','rb'))
 
             
     ipdb.set_trace()
     #set star1 and star2 
-    star1 = hr
-    star2 = hd
+    star1 = blg
+    # the star with the smaller spectra
+    star2 = hr
 
     #initializing the arrays(lists at first)
     exppowers_arr = []
@@ -198,17 +200,28 @@ if __name__ == '__main__':
 
     ipdb.set_trace()
     for order in range(star1.data.shape[0]):
-        
-        autocorr = np.correlate(\
-            star1.cs_splines[order](expspace_arr[order][edgnore+indmin:\
-                                             indmax-edgnore+1]),\
-                star1.cs_splines[order](expspace_arr[order][edgnore:\
-                                                 -edgnore]),mode='same')
-        ccorr = np.correlate(\
-            star1.cs_splines[order](expspace_arr[order][edgnore+indmin:\
-                                             indmax-edgnore+1]),\
-                star2.cs_splines[order](expspace_arr[order][edgnore:\
-                                                 -edgnore]),mode='same')
+ 
+        autocorr = corr(\
+            star1.cs_splines[order](expspace_arr[order]\
+                                        [edgnore+indmin:indmax-edgnore+1]),\
+                star1.cs_splines[order](expspace_arr[order]\
+                                            [edgnore:-edgnore+1])[::-1])
+
+        ccorr = corr(\
+            star1.cs_splines[order](expspace_arr[order]\
+                                        [edgnore+indmin:indmax-edgnore+1]),\
+                star2.cs_splines[order](expspace_arr[order]\
+                                            [edgnore:-edgnore+1])[::-1])
+#        autocorr = np.correlate(\
+#            star1.cs_splines[order](expspace_arr[order][edgnore+indmin:\
+#                                             indmax-edgnore+1]),\
+#                star1.cs_splines[order](expspace_arr[order][edgnore:\
+#                                                 -edgnore]),mode='same')
+#        ccorr = np.correlate(\
+#            star1.cs_splines[order](expspace_arr[order][edgnore+indmin:\
+#                                             indmax-edgnore+1]),\
+#                star2.cs_splines[order](expspace_arr[order][edgnore:\
+#                                                 -edgnore]),mode='same')
         
         autocorr_arr.append(autocorr)
         ccorr_arr.append(ccorr)
@@ -217,7 +230,7 @@ if __name__ == '__main__':
     ipdb.set_trace()
     sum = np.zeros(len(ccorr_arr[0]))
     for order in range(star1.data.shape[0]):
-        sum += autocorr_arr[order]#/np.median(ccorr_arr[order])
+        sum += ccorr_arr[order]#/np.median(ccorr_arr[order])
 #        plt.plot((np.arange(len(sum))-len(sum)/2)*vstep/1000.,sum/order)
 #        plt.show()
     ave = sum/float(star1.data.shape[0])
@@ -230,7 +243,7 @@ if __name__ == '__main__':
     ipdb.set_trace()
     for order in range(star1.data.shape[0]):
         print np.max(prod)
-        prod *= (1. - (autocorr_arr[order])**2)
+        prod *= (1. - (ccorr_arr[order])**2)
     maxlike = 1. - (prod**(1./star1.data.shape[0]))
 
     plt.plot((np.arange(len(ave))-len(ave)/2)*vstep/1000.,maxlike)
