@@ -111,10 +111,11 @@ if __name__ == '__main__':
     #next steps
     # do derivation, figure the velocity conversion
     # loop 
-    # read paper, ultimately want to sum signal over all orders
 
-    #Only doing order with Ca lines right now
-    numpoints = 20000.
+    numpoints = 50000.
+    edgnore = 10
+    indmin = 5000
+    indmax = 5000
 
     use_prev = raw_input('Load past multi_specs? (y or n)\n')
     #read in the fits files from the stars we want
@@ -138,9 +139,10 @@ if __name__ == '__main__':
             
     ipdb.set_trace()
     #set star1 and star2 
-    star1 = blg
     # the star with the smaller spectra
-    star2 = hr
+    star1 = hd
+    # the reference?
+    star2 = blg
 
     #initializing the arrays(lists at first)
     exppowers_arr = []
@@ -166,6 +168,9 @@ if __name__ == '__main__':
         #now back to no-log space, making these sampling points exponentially
         #spaced
         expspace_arr.append(np.exp(exppowers_arr[order]))
+        lnstep= (exppowers_arr[order].max()-exppowers_arr[order].min())/len(exppowers_arr[order])
+        vstep = 3e8*lnstep
+        print lnstep,vstep
         
 #        print (np.log(blg.wavelens[order].max())-\
 #                   np.log(blg.wavelens[order].min()))/2048
@@ -178,8 +183,8 @@ if __name__ == '__main__':
 
 #    print (np.log(blg.wavelens[order].max())-np.log(blg.wavelens[order].min()))/2048
 #    print 'our step size'
-    lnstep= (exppowers_arr[3].max()-exppowers_arr[3].min())/len(exppowers_arr[3])
-    vstep = 3e8*lnstep
+#    lnstep= (exppowers_arr[3].max()-exppowers_arr[3].min())/len(exppowers_arr[3])
+#    vstep = 3e8*lnstep
 #    print lnstep,vstep
 
 
@@ -194,24 +199,22 @@ if __name__ == '__main__':
 
     #going to ignore the 100 points on either end to avoid these 
     #bad points
-    edgnore = 50
-    indmin = 499
-    indmax = 19499
+
 
     ipdb.set_trace()
     for order in range(star1.data.shape[0]):
- 
+        print 'working on corrs for order: '+str(order+1)
         autocorr = corr(\
             star1.cs_splines[order](expspace_arr[order]\
-                                        [edgnore+indmin:indmax-edgnore+1]),\
+                                        [edgnore+indmin:-indmax-edgnore]),\
                 star1.cs_splines[order](expspace_arr[order]\
-                                            [edgnore:-edgnore+1])[::-1])
+                                            [edgnore:-edgnore])[::-1])
 
         ccorr = corr(\
             star1.cs_splines[order](expspace_arr[order]\
-                                        [edgnore+indmin:indmax-edgnore+1]),\
+                                        [edgnore+indmin:-indmax-edgnore]),\
                 star2.cs_splines[order](expspace_arr[order]\
-                                            [edgnore:-edgnore+1])[::-1])
+                                            [edgnore:-edgnore])[::-1])
 #        autocorr = np.correlate(\
 #            star1.cs_splines[order](expspace_arr[order][edgnore+indmin:\
 #                                             indmax-edgnore+1]),\
@@ -230,28 +233,49 @@ if __name__ == '__main__':
     ipdb.set_trace()
     sum = np.zeros(len(ccorr_arr[0]))
     for order in range(star1.data.shape[0]):
-        sum += ccorr_arr[order]#/np.median(ccorr_arr[order])
-#        plt.plot((np.arange(len(sum))-len(sum)/2)*vstep/1000.,sum/order)
-#        plt.show()
+        sum += ccorr_arr[order]
     ave = sum/float(star1.data.shape[0])
-    plt.plot((np.arange(len(ave))-len(ave)/2)*vstep/1000.,ave)
+    peak = (ave.argmax()-len(ave)/2)*vstep/1000.
+    plt.plot((np.arange(len(ave))-len(ave)/2)*vstep/1000.,ave,\
+                 label='peak: %.3f km/s'%(peak))
     plt.xlabel('Velcoity [km/s]')
+    plt.title('Simple Average: '+star1.name+' X '+star2.name)
+    pltindmin = len(ave)/2-indmin
+    pltindmax = len(ave)/2+indmax
+    pltmax = np.max(ave[pltindmin:pltindmax])+.1*\
+        np.max(ave[pltindmin:pltindmax])
+    pltmin = np.min(ave[pltindmin:pltindmax])-.1*\
+        np.min(ave[pltindmin:pltindmax])
+    plt.axis([-indmin*vstep/1000, indmax*vstep/1000,pltmin,pltmax])
+    plt.legend()
     plt.show()
     ipdb.set_trace()
 
     prod = np.ones(len(ccorr_arr[0]))
     ipdb.set_trace()
     for order in range(star1.data.shape[0]):
-        print np.max(prod)
         prod *= (1. - (ccorr_arr[order])**2)
     maxlike = 1. - (prod**(1./star1.data.shape[0]))
 
-    plt.plot((np.arange(len(ave))-len(ave)/2)*vstep/1000.,maxlike)
+    peak = (maxlike.argmax()-len(maxlike)/2)*vstep/1000.
+    plt.plot((np.arange(len(maxlike))-len(maxlike)/2)*vstep/1000.,maxlike,\
+                 label='peak: %.3f km/s'%(peak))
+    plt.title('Maximum Likelihood: '+star1.name+' X '+star2.name)
     plt.xlabel('Velcoity [km/s]')
+
+    pltindmin = len(maxlike)/2-indmin
+    pltindmax = len(maxlike)/2+indmax
+    pltmax = np.max(maxlike[pltindmin:pltindmax])+.1*\
+        np.max(maxlike[pltindmin:pltindmax])
+    pltmin = np.min(maxlike[pltindmin:pltindmax])-.1*\
+        np.min(maxlike[pltindmin:pltindmax])
+
+    plt.axis([-indmin*vstep/1000, indmax*vstep/1000,pltmin,pltmax])
+    plt.legend()
     plt.show()
     
     ipdb.set_trace()
-    for order in (np.arange(star1.data.shape[0]/2)):#+star1.data.shape[0]/2):
+    for order in (np.arange(star1.data.shape[0]/2)):
         plt.plot((np.arange(len(autocorr_arr[order]))\
                       -len(autocorr_arr[order])/2)*vstep/1000.,\
                      autocorr_arr[order],label=order)
