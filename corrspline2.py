@@ -114,8 +114,8 @@ if __name__ == '__main__':
 
     numpoints = 50000.
     edgnore = 10
-    indmin = 5000
-    indmax = 5000
+    indmin = 500
+    indmax = 500
 
     use_prev = raw_input('Load past multi_specs? (y or n)\n')
     #read in the fits files from the stars we want
@@ -140,9 +140,9 @@ if __name__ == '__main__':
     ipdb.set_trace()
     #set star1 and star2 
     # the star with the smaller spectra
-    star1 = hd
+    star1 = blg
     # the reference?
-    star2 = blg
+    star2 = hr
 
     #initializing the arrays(lists at first)
     exppowers_arr = []
