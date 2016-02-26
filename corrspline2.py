@@ -140,9 +140,12 @@ if __name__ == '__main__':
     ipdb.set_trace()
     #set star1 and star2 
     # the star with the smaller spectra
-    star1 = blg
+    star1 = hr
     # the reference?
-    star2 = hr
+    star2 = blg
+
+    #Allen's astro quantities, or similar
+    #
 
     #initializing the arrays(lists at first)
     exppowers_arr = []
