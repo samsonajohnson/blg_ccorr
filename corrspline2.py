@@ -6,6 +6,26 @@ from astropy.io import fits
 import ipdb
 import pickle
 import dill
+import pysynphot
+
+
+class highres_spec:
+    def __init__(self,fits_name):
+        self.hdu = fits.open(fits_name)
+        self.data = self.hdu[0].data
+        #S hard coding in the wavelengths
+        self.wavelens = np.linspace(2500.,9000.,325001,endpoint=True)
+        self.spline = self.big_spline()
+        
+    def big_spline(self):
+        return scipy.interpolate.interp1d(\
+                self.wavelens,\
+                    self.data,\
+                    kind = 'cubic')
+            
+        
+        
+        
 
 class multi_spec:
     def __init__(self,fits_name,pixels = 2048):
