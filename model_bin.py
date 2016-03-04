@@ -64,14 +64,14 @@ def extend(arr, nel, undo=False):
 [-1])
         return new
 
+if __name__ == '__main__':
 
-
-hdu = fits.open('./t05500_g+0.5_m10p04_hr.fits')
-data = hdu[0].data
-waves = np.linspace(2500,9000,325001)
-wavenew = np.linspace(2500.2,8999.8,32499)
-
-ipdb.set_trace()
-
-john_flux = john_rebin(waves,data,wavenew,0)
-syn_flux = syn_rebin(waves,data,wavenew)
+    hdu = fits.open('./t05500_g+0.5_m10p04_hr.fits')
+    data = hdu[0].data
+    waves = np.linspace(2500,9000,325001)
+    wavenew = np.linspace(2500.2,8999.8,32499)
+    
+    ipdb.set_trace()
+    
+    john_flux = john_rebin(waves,data,wavenew,0)
+    syn_flux = syn_rebin(waves,data,wavenew)

@@ -7,21 +7,16 @@ import ipdb
 import pickle
 import dill
 import pysynphot
-
+#import model_bin as mb
+#import spec_fit as sf
 
 class highres_spec:
     def __init__(self,fits_name):
         self.hdu = fits.open(fits_name)
         self.data = self.hdu[0].data
         #S hard coding in the wavelengths
-        self.wavelens = np.linspace(2500.,9000.,325001,endpoint=True)
-        self.spline = self.big_spline()
-        
-    def big_spline(self):
-        return scipy.interpolate.interp1d(\
-                self.wavelens,\
-                    self.data,\
-                    kind = 'cubic')
+        self.wavelens = np.linspace(2500.,9000.,325001)
+
             
         
         
@@ -119,7 +114,7 @@ class multi_spec:
                                 
                                 
 
-def corr(spec1, spec2, min=None, max=None):
+def mycorr(spec1, spec2, min=None, max=None):
     conv = np.convolve(spec1,spec2,mode='same')
     squaresum1 = np.sum(spec1**2)
     squaresum2 = np.sum(spec2**2)
@@ -132,10 +127,10 @@ if __name__ == '__main__':
     # do derivation, figure the velocity conversion
     # loop 
 
-    numpoints = 50000.
-    edgnore = 10
-    indmin = 500
-    indmax = 500
+    numpoints = 2048.
+    edgnore = 1
+    indmin = 50
+    indmax = 50
 
     use_prev = raw_input('Load past multi_specs? (y or n)\n')
     #read in the fits files from the stars we want
@@ -155,6 +150,8 @@ if __name__ == '__main__':
         blg = dill.load(open('./BLG0966'+suffix+'.pkl','rb'))
         hr = dill.load(open('./HR4963'+suffix+'.pkl','rb'))
         hd = dill.load(open('./HD142527'+suffix+'.pkl','rb'))
+
+
 
             
     ipdb.set_trace()
@@ -225,29 +222,22 @@ if __name__ == '__main__':
 
 
     ipdb.set_trace()
+    
+
+
     for order in range(star1.data.shape[0]):
         print 'working on corrs for order: '+str(order+1)
-        autocorr = corr(\
+        autocorr = mycorr(\
             star1.cs_splines[order](expspace_arr[order]\
                                         [edgnore+indmin:-indmax-edgnore]),\
                 star1.cs_splines[order](expspace_arr[order]\
                                             [edgnore:-edgnore])[::-1])
 
-        ccorr = corr(\
+        ccorr = mycorr(\
             star1.cs_splines[order](expspace_arr[order]\
                                         [edgnore+indmin:-indmax-edgnore]),\
                 star2.cs_splines[order](expspace_arr[order]\
                                             [edgnore:-edgnore])[::-1])
-#        autocorr = np.correlate(\
-#            star1.cs_splines[order](expspace_arr[order][edgnore+indmin:\
-#                                             indmax-edgnore+1]),\
-#                star1.cs_splines[order](expspace_arr[order][edgnore:\
-#                                                 -edgnore]),mode='same')
-#        ccorr = np.correlate(\
-#            star1.cs_splines[order](expspace_arr[order][edgnore+indmin:\
-#                                             indmax-edgnore+1]),\
-#                star2.cs_splines[order](expspace_arr[order][edgnore:\
-#                                                 -edgnore]),mode='same')
         
         autocorr_arr.append(autocorr)
         ccorr_arr.append(ccorr)
