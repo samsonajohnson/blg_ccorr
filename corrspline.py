@@ -16,8 +16,18 @@ class highres_spec:
         self.data = self.hdu[0].data
         #S hard coding in the wavelengths
         self.wavelens = np.linspace(2500.,9000.,325001)
+    
 
-            
+    def corr_set(self,wavelens):
+        #S returns a spline sampled at the given wavelengths
+        model = mb.john_rebin(self.wavelens,self.data,wavelens,0.)
+        coeffs = np.polyfit(wavelens,model,5)
+        cs_model = model - np.polyval(coeffs,wavelens)
+        spline = scipy.interpolate.interp1d(\
+                wavelens,\
+                    cs_data,\
+                    kind = 'cubic')    
+        return spline
         
         
         
@@ -56,15 +66,18 @@ class multi_spec:
         #continuum subtract the data, fitting a cubic
 #        ipdb.set_trace()
         for order in range(self.data.shape[0]):
-            coeffs = np.polyfit(self.wavelens[order],self.data[order]\
-                                    /np.sum(self.data[order]),5)
-            temp_cs_arr = (self.data[order]/np.sum(self.data[order])\
-                               -(coeffs[5]\
-                                     +coeffs[4]*self.wavelens[order]\
-                                     +coeffs[3]*self.wavelens[order]**2\
-                                     +coeffs[2]*self.wavelens[order]**3\
-                                     +coeffs[1]*self.wavelens[order]**4\
-                                     +coeffs[0]*self.wavelens[order]**5))
+            coeffs = np.polyfit(self.wavelens[order],\
+                                    self.data[order]/np.sum(self.data[order]),\
+                                    5)
+            temp_cs_arr = (self.data[order]/np.sum(self.data[order])-\
+                               np.polyval(coeffs,self.wavelens[order]))
+#
+#                               -(coeffs[5]\
+#                                     +coeffs[4]*self.wavelens[order]\
+#                                     +coeffs[3]*self.wavelens[order]**2\
+#                                     +coeffs[2]*self.wavelens[order]**3\
+#                                     +coeffs[1]*self.wavelens[order]**4\
+#                                     +coeffs[0]*self.wavelens[order]**5))
             self.cs_data.append(temp_cs_arr)
                                           
             #a catch to see if the continuum subtraction is still returning 
@@ -142,7 +155,7 @@ if __name__ == '__main__':
         if save_new == 'y':
             ipdb.set_trace()
             for star in [blg,hr,hd]:
-                dillfile = open('./'+star.name+'_norm.pkl','wb')
+                dillfile = open('./'+star.name+'_norm2.pkl','wb')
                 dill.dump(star,dillfile)
                 dillfile.close()
     else:
