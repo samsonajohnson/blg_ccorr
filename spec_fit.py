@@ -38,20 +38,10 @@ def gaussian(p):
     xip = np.arange(-10,10+.25,.25)
     return np.exp(-(xip/p[1])**2.)
 
-def err_func(p,model,wavelens,spec):
-    #S i think the fitter minimizes the square of this, no need to square here?
-#    conv_model = mb.numconv(fit_model(p,model,wavelens),gaussian(p))
-    #S to include sigma clipped points, and points greater than zero
-    zeroinds = np.where(spec>0)[0]
-    med = np.median(spec[zeroinds])
-    std = np.std(spec[zeroinds])
-    siginds = np.where(np.abs(spec[zeroinds]-med)<3*std)[0]
-    inds = zeroinds[siginds]
-#    inds = zeroinds
-    fitspec = spec[inds]
-#    ipdb.set_trace()
-#    return (cfit_model(p,model,wavelens)-\
-#                fitspec)/np.sqrt(np.abs(fitspec))
+def err_func(p,model,star,order):
+    wavelens = star.wavelens[order]
+    inds = star.inds[str(order)]
+    fitspec = star.data[order][inds]
     return (cfit_model(p,model,wavelens)[inds] -\
                 fitspec)/np.sqrt(np.abs(fitspec))
     
@@ -78,34 +68,46 @@ if __name__ == '__main__':
     ipdb.set_trace()
     offset = 250
     params = []
-    for order in np.arange(len(blg.data)-28)+2:
+    blg.inds = {}
 
-#    while True:
-#        order = int(raw_input('Order to fit: '))
+    for order in np.arange(len(blg.data)-19)+2:
 
-        ind = np.where(blg.data[order]>0)[0]        
+        # sigma clip from the top
+        zinds = np.where(blg.data[order]>0.)[0]
+        inds = zinds
+        ct = len(inds)
+
+        ran = np.arange(len(blg.data[order]))
+        dct = 1
+
+        while dct>0:#oldlen != newlen:                                          
+            med = np.median(blg.data[order][inds])
+            std = np.std(blg.data[order][inds])
+            inds = zinds[np.where(blg.data[order][zinds]<med+3*std)[0]]
+            newct = len(inds)
+            dct = ct-newct
+            ct = newct
+        blg.inds[str(order)] = inds
 
 #        coeffs = np.polyfit(blg.wavelens[order][ind],blg.data[order][ind],2,\
 #                                w=1/np.sqrt(blg.data[order][ind]))
 #        cscorr = np.polyval(coeffs,blg.wavelens[order])
 #        fit_data = (blg.data[0]-cscorr+median)
 
-        p0 = [0.00014,1.,np.median(blg.data[order]),0.]#,0.]
+        p0 = [0.00014,1.,np.median(blg.data[order]),0.,0.]
 #        p0 = [0.00014,np.median(blg.data[order]),0.]#,0.]
 
         out=scipy.optimize.leastsq(err_func,p0,args=\
-                                       (full_model,blg.wavelens[order],\
-#                                            fit_data),\
-                                        blg.data[order]),\
+                                       (full_model,blg,order),\
                                         full_output=1,maxfev=1000)
 
         message=out[3]
         ier=out[4]
         print 'Fitter status:',ier,' Message: ',message        
         p1 = out[0]
-        if out[1] == None:
-            ipdb.set_trace()
-            continue
+#        if out[1] == None:
+#            ipdb.set_trace()
+#            continue
         jacob=out[1]
         mydict=out[2]
 
@@ -124,17 +126,14 @@ if __name__ == '__main__':
         rv.append(p1[0]*2.99e8)
 #        rver.append(np.sqrt(covar[0,0])*3e8)
 #    ipdb.set_trace()
-
-        plt.plot(np.arange(len(blg.data[0])),offset*order+\
-                     blg.data[order],'b',zorder=1)
-#        plt.plot(np.arange(len(blg.data[0])),\
-#                     np.polyval(coeffs,blg.wavelens[order])-coeffs[0]+\
-#                                    offset*order,'y',zorder=2)
-        plt.plot(np.arange(len(blg.data[0])),offset*order+\
-                     cfit_model(p0,full_model,blg.wavelens[order]),\
+        inds = blg.inds[str(order)]
+        plt.plot(inds,offset*order+\
+                     blg.data[order][inds],'b',zorder=1)
+        plt.plot(inds,offset*order+\
+                     cfit_model(p0,full_model,blg.wavelens[order])[inds],\
                      'g',zorder=2)
-        plt.plot(np.arange(len(blg.data[0])),offset*order+\
-                     cfit_model(p1,full_model,blg.wavelens[order]),\
+        plt.plot(inds,offset*order+\
+                     cfit_model(p1,full_model,blg.wavelens[order])[inds],\
                      'r',zorder=2)
 
         """
@@ -150,9 +149,9 @@ if __name__ == '__main__':
     plt.show()
     ipdb.set_trace()
     rv = np.array(rv)/1000.
-    rver = np.array(rver)/1000.
+#    rver = np.array(rver)/1000.
     plt.plot(np.arange(len(rv)),rv,'o')
     
-    plt.errorbar(np.arange(len(rv)),rv,yerr=rver)
+#    plt.errorbar(np.arange(len(rv)),rv,yerr=rver)
     plt.show()
     ipdb.set_trace()
