@@ -4,8 +4,9 @@ import pysynphot
 from astropy.io import fits
 import ipdb
 
-import scipy.signal as sig
+import scipy.signal 
 from scipy.interpolate import interp1d
+from scipy.signal import fftconvolve
 
 def syn_rebin(wave,specin,wavenew):
     #S taken form astrobetter: 
