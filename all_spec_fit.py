@@ -43,7 +43,7 @@ def all_err_func(p,model,star):
     all_errs = np.array([])
     j=0
     print p
-    for order in np.arange(len(blg.data)-28)+2:
+    for order in np.arange(len(blg.data)-19)+2:
         """ old sigclip
         zind = np.where(star.data[order]>0.)[0]
         med=np.median(star.data[order][zind])
@@ -99,7 +99,7 @@ if __name__ == '__main__':
         #    p0 = [0.0001666,250000.,46.]
         #    p0 = [0.0001666,2500000./2,-500.]#4
     blg.inds={}
-    for order in np.arange(len(blg.data)-28)+2:
+    for order in np.arange(len(blg.data)-19)+2:
         p0.append(np.median(blg.data[order]))
         p0.append(0.)
         p0.append(0.)

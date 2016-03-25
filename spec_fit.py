@@ -69,8 +69,8 @@ if __name__ == '__main__':
     offset = 250
     params = []
     blg.inds = {}
-
-    for order in np.arange(len(blg.data)-19)+2:
+#    for order in [3]:
+    for order in np.arange(len(blg.data)-28)+2:
 
         # sigma clip from the top
         zinds = np.where(blg.data[order]>0.)[0]
@@ -126,6 +126,7 @@ if __name__ == '__main__':
         rv.append(p1[0]*2.99e8)
 #        rver.append(np.sqrt(covar[0,0])*3e8)
 #    ipdb.set_trace()
+        
         inds = blg.inds[str(order)]
         plt.plot(inds,offset*order+\
                      blg.data[order][inds],'b',zorder=1)
@@ -134,8 +135,17 @@ if __name__ == '__main__':
                      'g',zorder=2)
         plt.plot(inds,offset*order+\
                      cfit_model(p1,full_model,blg.wavelens[order])[inds],\
-                     'r',zorder=2)
-
+                     'r',zorder=2,linewidth=2)
+        """
+        plt.plot(blg.wavelens[order][inds],\
+                     blg.data[order][inds],'b',zorder=1)
+#        plt.plot(blg.wavelens[order][inds],\
+#                     cfit_model(p0,full_model,blg.wavelens[order])[inds],\
+#                     'g',zorder=2)
+        plt.plot(blg.wavelens[order][inds],\
+                     cfit_model(p1,full_model,blg.wavelens[order])[inds],\
+                     'r',zorder=2,linewidth=2)
+        """
         """
         plt.plot(blg.wavelens[order],blg.data[order]+offset*order,'b',zorder=1)
         plt.plot(blg.wavelens[order],offset*order+fit_model(p0,full_model,blg.wavelens[order]),\
@@ -144,14 +154,22 @@ if __name__ == '__main__':
                      'r',zorder=2)
         
         """
-    plt.xlabel('Bin')
-    plt.ylabel('Arbitrary')
+    plt.xlabel('Wavelength')
+    plt.ylabel('Counts')#''Arbitrary')
+#    plt.axis([8400,9000,0,500])
     plt.show()
+
+    barycorr = 24167.
     ipdb.set_trace()
-    rv = np.array(rv)/1000.
+    rv = (np.array(rv)+barycorr)/1000.
 #    rver = np.array(rver)/1000.
-    plt.plot(np.arange(len(rv)),rv,'o')
-    
+    plt.plot(np.arange(len(rv)),rv,'o',label='Individual order RV')
+    trv = np.concatenate([rv[0:5],rv[7:11],rv[13:]])
+    all_rv = 49.791 + barycorr/1000.
+    plt.plot([0,32],[all_rv,all_rv],'r-',label='RV from simul. fit')
 #    plt.errorbar(np.arange(len(rv)),rv,yerr=rver)
+    plt.xlabel('"Order"')
+    plt.ylabel('RV [km s$^{-1}$]')
+    plt.legend()
     plt.show()
     ipdb.set_trace()
