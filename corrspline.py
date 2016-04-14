@@ -33,7 +33,7 @@ class highres_spec:
         
 
 class multi_spec:
-    def __init__(self,fits_name,pixels = 2048):
+    def __init__(self,fits_name,pixels = 2048,spline=False):
         self.hdu = fits.open(fits_name)
         self.spec_string = ''
         self.name = self.hdu[0].header['OBJECT']
@@ -48,6 +48,7 @@ class multi_spec:
                 else:
                     self.spec_string += self.hdu[0].header[key] 
         self.data = self.hdu[0].data[6,:,:]
+        self.errs = self.hdu[0].data[2,:,:]
         self.cs_data=[]
         self.wavelens = []
         
@@ -62,7 +63,8 @@ class multi_spec:
                 ipdb.set_trace()
             self.wavelens.append(np.linspace(start,start+2047.*step,pixels))
         self.wavelens = np.array(self.wavelens)
-
+        if not spline:
+            return
         #continuum subtract the data, fitting a cubic
 #        ipdb.set_trace()
         for order in range(self.data.shape[0]):

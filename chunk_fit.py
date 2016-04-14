@@ -19,15 +19,6 @@ def cfit_model(p,full_model,wavelens):
     model = mb.john_rebin(full_model.wavelens,unbin_model,wavelens,p[0])
     return model
 
-    #S continuum subtraction
-#    coeffs = np.polyfit(wavelens,model,5)
-    #S do we need to add 1? will just come out in the wash. might want to boost
-    #S the observed though
-#    cs_model = model - np.polyval(coeffs,wavelens) 
-#    convmodel = mb.numconv(model,gaussian(p))
-    factor = np.polyval(p[:1:-1],wavelens)
-    return factor*convmodel/np.max(convmodel) 
-#    return factor*model/np.max(model) 
 
 def fit_model(p,full_model,wavelens):
     #S make a chunk of the model shifted by doppler factor z
@@ -51,6 +42,19 @@ def err_func(p,model,star,order):
     fitspec = star.data[order][inds]
     return (cfit_model(p,model,wavelens)[inds] -\
                 fitspec)/np.sqrt(np.abs(fitspec))
+
+def chunk_err_func(p,model,star,order,chunk):
+    offset = 48
+    c_length = 400
+    #S these are indices that are included in the chunk
+    c_inds = np.arange(offset+chunk*c_length,offset+(chunk+1)*c_length)
+    wavelens = star.wavelens[order][c_inds]
+    #S these are indices OF THE CHUNK that have been sigma clipped
+    inds = star.inds[str(order)+'_'+str(chunk)]
+    fitspec = star.data[order][c_inds][inds]
+
+    return (cfit_model(p,model,wavelens)[inds] -\
+                fitspec)/np.sqrt(np.abs(fitspec))
     
 
 
@@ -59,8 +63,8 @@ if __name__ == '__main__':
     full_model = corr.highres_spec('./t05500_g+4.0_p00p00_hrplc.fits')
     suffix = '_norm2'
     blg = dill.load(open('./BLG0966'+suffix+'.pkl','rb'))
-    hr = dill.load(open('./HR4963'+suffix+'.pkl','rb'))
-    hd = dill.load(open('./HD142527'+suffix+'.pkl','rb'))
+#    hr = dill.load(open('./HR4963'+suffix+'.pkl','rb'))
+#    hd = dill.load(open('./HD142527'+suffix+'.pkl','rb'))
 #    ipdb.set_trace()
 
     rv=[]
@@ -73,77 +77,86 @@ if __name__ == '__main__':
     ipdb.set_trace()
     """
     ipdb.set_trace()
-    offset = 250
     params = []
     blg.inds = {}
     params_list=[]
-#    for order in [3]:
-    for order in np.arange(len(blg.data)-28)+2:
 
-        # sigma clip from the top
-        zinds = np.where(blg.data[order]>0.)[0]
-        inds = zinds
-        ct = len(inds)
-
-        ran = np.arange(len(blg.data[order]))
-        dct = 1
-
-        while dct>0:#oldlen != newlen:                                          
-            med = np.median(blg.data[order][inds])
-            std = np.std(blg.data[order][inds])
-            inds = zinds[np.where(blg.data[order][zinds]<med+3*std)[0]]
-            newct = len(inds)
-            dct = ct-newct
-            ct = newct
-        blg.inds[str(order)] = inds
-
-#        coeffs = np.polyfit(blg.wavelens[order][ind],blg.data[order][ind],2,\
-#                                w=1/np.sqrt(blg.data[order][ind]))
-#        cscorr = np.polyval(coeffs,blg.wavelens[order])
-#        fit_data = (blg.data[0]-cscorr+median)
-
-        p0 = [0.00014,1.,np.median(blg.data[order]),0.,0.]
-#        p0 = [0.00014,np.median(blg.data[order]),0.]#,0.]
-
-        out=scipy.optimize.leastsq(err_func,p0,args=\
-                                       (full_model,blg,order),\
-                                        full_output=1,maxfev=1000)
-
-        message=out[3]
-        ier=out[4]
-        print 'Fitter status:',ier,' Message: ',message        
-        p1 = out[0]
-#        if out[1] == None:
+    offind = 48
+    offset = 250
+    chunk_length = 400
+    for order in [2,3,4,5]:
+#    for order in np.arange(len(blg.data)-28)+2:
+        for chunk_ind in  np.arange((len(blg.data[order])-offind)/chunk_length):
 #            ipdb.set_trace()
-#            continue
-        jacob=out[1]
-        mydict=out[2]
+            c_inds = np.arange(offind+chunk_ind*chunk_length,\
+                                   offind+(chunk_ind+1)*chunk_length)
+            chunk_data = blg.data[order][c_inds]
+            chunk_waves = blg.wavelens[order][c_inds]
+            
+            # sigma clip from the top
+            zinds = np.where(chunk_data>0.)[0]
+            inds = zinds
+            ct = len(inds)
+            ran = np.arange(len(chunk_data))
+            dct = 1
+            while dct>0:#oldlen != newlen:
+                med = np.median(chunk_data[inds])
+                std = np.std(chunk_data[inds])
+                inds = zinds[np.where(chunk_data[zinds]<med+3*std)[0]]
+                newct = len(inds)
+                dct = ct-newct
+                ct = newct
+                
 
-        resids=mydict['fvec']
-#        covar = np.std(resids)**2*jacob
-        chisq = np.sum(resids**2)
-        degs_frdm=len(blg.wavelens[order])-len(p1)
-        red_chisq = chisq/degs_frdm
+#            ipdb.set_trace()
+            blg.inds[str(order)+'_'+str(chunk_ind)] = inds
 
-        i=0
-        for u in p1:
-            print 'Param: ', i+1, ': ',u,' +/-'#,np.sqrt(covar[i,i])
-            i+=1
-        print 'Chisq: ',chisq,' Reduced Chisq: ',red_chisq
-        params.append(p1)
-        rv.append(p1[0]*2.99e8)
-#        rver.append(np.sqrt(covar[0,0])*3e8)
-#    ipdb.set_trace()
-        params_list.append(p1)
-        inds = blg.inds[str(order)]
-        plt.plot(inds,offset*order+\
-                     blg.data[order][inds],'b',zorder=1)
-        plt.plot(inds,offset*order+\
-                     cfit_model(p0,full_model,blg.wavelens[order])[inds],\
-                     'g',zorder=2)
-        plt.plot(inds,offset*order+\
-                     cfit_model(p1,full_model,blg.wavelens[order])[inds],\
-                     'r',zorder=2,linewidth=2)
+            p0 = [0.00014,1.,np.median(blg.data[order]),0.,0.]
+#            ipdb.set_trace()
+#            chunk_err_func(p0,full_model,blg,order,chunk_ind)
+            out=scipy.optimize.leastsq(chunk_err_func,p0,args=\
+                                           (full_model,blg,order,chunk_ind),\
+                                           full_output=1,maxfev=1000)
+        
+            message=out[3]
+            ier=out[4]
+            print 'Fitter status:',ier,' Message: ',message        
+            p1 = out[0]
+            
+            #        if out[1] == None:
+            #            ipdb.set_trace()
+            #            continue
+            jacob=out[1]
+            mydict=out[2]
+            
+            resids=mydict['fvec']
+            #        covar = np.std(resids)**2*jacob
+            chisq = np.sum(resids**2)
+            degs_frdm=len(blg.wavelens[order])-len(p1)
+            red_chisq = chisq/degs_frdm
+            
+            i=0
+            for u in p1:
+                print 'Param: ', i+1, ': ',u,' +/-'#,np.sqrt(covar[i,i])
+                i+=1
+            print 'Chisq: ',chisq,' Reduced Chisq: ',red_chisq
+            
+            rv.append(p1[0]*2.99e8)
+            params_list.append(p1)
+            inds = blg.inds[str(order)+'_'+str(chunk_ind)]
+            
+#            ipdb.set_trace()
+            """
+            plt.plot(blg.wavelens[order][c_inds][inds],#offset*order+\
+                         cfit_model(p0,full_model,blg.wavelens[order])[c_inds][inds],\
+                         'g',zorder=2)
+            plt.plot(blg.wavelens[order][c_inds][inds],#offset*order+\
+                         cfit_model(p1,full_model,blg.wavelens[order])[c_inds][inds],\
+                         'r',zorder=2,linewidth=2)
+            plt.plot(blg.wavelens[order][c_inds][inds],#offset*order+\
+                         blg.data[order][c_inds][inds],'b',zorder=1)
+            """
+            
         """
         plt.plot(blg.wavelens[order][inds],\
                      blg.data[order][inds],'b',zorder=1)

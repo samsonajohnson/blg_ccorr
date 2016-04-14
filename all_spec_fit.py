@@ -13,6 +13,7 @@ from scipy import optimize
 def fit_model(p,full_model,wavelens):
     #S make a chunk of the model shifted by doppler factor z
     model = mb.john_rebin(full_model.wavelens,full_model.data,wavelens,p[0])
+    factor = np.polyval(p[:1:-1],full_model.wavelens)
     #S continuum subtraction
 #    coeffs = np.polyfit(wavelens,model,5)
     #S do we need to add 1? will just come out in the wash. might want to boost
@@ -21,17 +22,19 @@ def fit_model(p,full_model,wavelens):
     factor = np.polyval(p[:0:-1],wavelens)
     return factor*model/np.max(model)
 
-def cfit_model(p,full_model,wavelens):
+def cfit_model(p,full_model,wavelens,order):
     #S make a chunk of the model shifted by doppler factor z
-    model = mb.john_rebin(full_model.wavelens,full_model.data,wavelens,p[0])
+    ipmodel = mb.numconv(full_model.data,gaussian(p))
+#    model = mb.john_rebin(full_model.wavelens,full_model.data,wavelens,p[0])
     #S continuum subtraction
 #    coeffs = np.polyfit(wavelens,model,5)
     #S do we need to add 1? will just come out in the wash. might want to boost
     #S the observed though
 #    cs_model = model - np.polyval(coeffs,wavelens) + 1.
-    factor = np.polyval(p[:1:-1],wavelens)
-    convmodel = mb.numconv(model,gaussian(p))
-    return factor*convmodel/np.max(convmodel)
+    factor = np.polyval(p[:1:-1],full_model.wavelens)
+    unbinmodel = factor*ipmodel/np.max(ipmodel)
+    model = mb.john_rebin(full_model.wavelens,full_model.data,wavelens,p[0])
+    return model
 
 
 def gaussian(p):
@@ -69,7 +72,7 @@ def all_err_func(p,model,star):
         inds = blg.inds[str(order)]
         all_errs=np.concatenate([all_errs,
                                  (cfit_model(temp_params,model,\
-                                                star.wavelens[order])[inds]-\
+                                                star.wavelens[order],order)[inds]-\
                                     star.data[order][inds])])
     #S i think the fitter minimizes the square of this, no need to square here?
 
