@@ -18,12 +18,12 @@ def cfit_model(p,model_ck,wavelens,order):
 
 def gaussian(p):
     xip = np.arange(-10,10+.25,.25)
-    if p[1] < .001:
-        p[1] = .001
+    if p[1] < 1.:
+        p[1] = 1.
     return np.exp(-(xip)**2./p[1])
 
 
-def all_err_func(p,model,star,fit_data,plot_check=False):
+def all_err_func(p,model,star,plot_check=False):
     all_errs = np.array([])
     all_edge_errs = np.array([])
     j=0
@@ -64,18 +64,18 @@ def all_err_func(p,model,star,fit_data,plot_check=False):
             tmodel = mb.john_rebin(modwaves,unbinmodel,ckwaves,p[0])
             
             inds = blg.inds['o'+str(order)+'_c'+str(ck)]
-            fit_data['o'+str(order)+'_c'+str(ck)] = tmodel[inds]
+            star.fit_data['o'+str(order)+'_c'+str(ck)] = tmodel[inds]
             
             if plot_check:
                 #ipdb.set_trace()
                 plt.plot(ckwaves[inds],ckdata[inds],zorder=2)
                 plt.plot(ckwaves[inds],tmodel[inds],linewidth=2,zorder=2)
 
-            errs = (tmodel[inds] - ckdata[inds])/(ckerrs[inds]/1.75)
+            errs = (tmodel[inds] - ckdata[inds])/(ckerrs[inds])#/1.75)
 
             if ck != star.fit_chunks[0]:
-                edge_errs = (fit_data['o'+str(order)+'_c'+str(ck-1)][-1] - \
-                     fit_data['o'+str(order)+'_c'+str(ck)][0])
+                edge_errs = (star.fit_data['o'+str(order)+'_c'+str(ck-1)][-1]-\
+                     star.fit_data['o'+str(order)+'_c'+str(ck)][0])
 
             else: 
                 edge_errs = 0.
@@ -95,6 +95,28 @@ def all_err_func(p,model,star,fit_data,plot_check=False):
 #                str(cklen)+'.pdf'
 #            plt.savefig(imsave_path)
             plt.show()
+    
+    if plot_check:
+        prevpts = 0
+        prevmax = 0
+        for order in blg.fit_orders:
+            for ck in blg.fit_chunks:
+                x = np.arange(len(blg.inds['o'+str(order)+'_c'+str(ck)]))+\
+                    prevpts
+                prevpts += len(x)
+                tdata = blg.fit_data['o'+str(order)+'_c'+str(ck)]
+                adata = blg.data[order][np.arange(400)+skipf+ck*cklen]\
+                    [blg.inds['o'+str(order)+'_c'+str(ck)]]
+                errs = blg.errs[order][np.arange(400)+skipf+ck*cklen]\
+                    [blg.inds['o'+str(order)+'_c'+str(ck)]]/1.75
+                plt.plot(x,prevmax+np.cumsum(((tdata-adata)/errs)**2),\
+                             label=str(order)+' '+str(ck))
+#                ipdb.set_trace()
+                prevmax = np.cumsum(((tdata-adata)/errs)**2)[-1] + prevmax
+        plt.plot(np.arange(prevpts))
+        plt.axis([0,prevpts+1000,0,prevpts+1000])
+        plt.legend()
+        plt.show()
     return np.array(all_errs)
 
     
@@ -107,44 +129,56 @@ def err_func(p,model,wavelens,spec):
 
 
 if __name__ == '__main__':
-#    full_model = corr.highres_spec('./t05500_g+0.5_m10p04_hr.fits')
+    # get the full highres model spectrum class
     full_model = corr.highres_spec('./t05500_g+4.0_p00p00_hrplc.fits')
+    # the blg spectrum class
     blg = corr.multi_spec('./blg0966red_multi.fits')
-#    suffix = '_norm2'
-#    blg = dill.load(open('./BLG0966'+suffix+'.pkl','rb'))
-#    hr = dill.load(open('./HR4963'+suffix+'.pkl','rb'))
-#    hd = dill.load(open('./HD142527'+suffix+'.pkl','rb'))
-#    ipdb.set_trace()
-#    while True:
-#        order = int(raw_input('Order to fit: '))
-#    ipdb.set_trace()
-    
-    p0 = [0.00014,1.]
-        #    p0 = [0.0001666,np.median(blg.data[order]),0.]
-        #    p0 = [0.0001666,250000.,46.]
-        #    p0 = [0.0001666,2500000./2,-500.]#4
+    # the simultaneous fit parameters, z and ip width (just a gaussian)
+    p0 = [0.0001,1.]
+    # the empty dictionary for putting the trimmed indices
     blg.inds={}
+    # the pixels to sjip at the beginnning of each order
     skipf = 48
+    # the length of chunk we are using
     cklen = 400
-    fit_data = {}
-    blg.fit_orders = [2,3,4,5,6,7,8,9]#,10,11,12]#np.arange(len(blg.data)-19)+2
+    # empty dict for data
+    blg.fit_data = {}
+    # list of orders we want to fit
+    blg.fit_orders = [2,3,4,5,6]#,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
+    # number of chunks we will be fitting based on cklen and skipf
     blg.fit_chunks = np.arange((len(blg.data[0])-skipf)/cklen)
-    for order in blg.fit_orders:#np.arange(len(blg.data)-19)+2:
+    
+    # go through and clip 'bad' points. here, bad is points that are three 
+    # sigma above the median counts in a chunk, and points lower than zero
+    for order in blg.fit_orders:
+        # temp for order data
         odata = blg.data[order]
+        # a check for plotting
 #        plt.plot(blg.wavelens[order],blg.data[order],zorder=1)
+
         for ck in blg.fit_chunks:
+            # temp for data in a chunk
             ckdata = odata[ck*cklen+skipf:(ck+1)*cklen+skipf]
+            # getting initial guess for fit parameters, assmuming a flat 
+            # wavelength dependence
             p0.append(np.median(ckdata))
             p0.append(0.)
             p0.append(0.)
 
+            # indices greater than zero
             zinds = np.where(ckdata>0.)[0]
+            # set inds to zinds for intial count of bad inds
             inds = zinds
+            # get the count of inds, as w are watching for when the change 
+            # goes to zero
             ct = len(inds)
-
+            
+            # zero index indices for the chunk
             ran = np.arange(len(ckdata))
+            # the change in inds count, initialize at 1 so we enter the loop
             dct = 1
             
+            # while there is a change in the number of inds being counted
             while dct>0:#oldlen != newlen:
                 med = np.median(ckdata[inds])
                 std = np.std(ckdata[inds])
@@ -152,13 +186,18 @@ if __name__ == '__main__':
                 newct = len(inds)
                 dct = ct-newct
                 ct = newct
+            # a plot to check
 #            plt.plot(np.arange(len(blg.data[order])),blg.data[order])
 #            plt.plot(inds,blg.data[order][inds])
 #            plt.plot([0,2048],[med+3*std,med+3*std])
 #            plt.show()
 
+            # make the list of inds a dict entry for blg for later reference
             blg.inds['o'+str(order)+'_c'+str(ck)] = inds# + skipf + cklen*ck
-            fit_data['o'+str(order)+'_c'+str(ck)] = np.zeros(len(inds))
+            # initialize the length of the fit_data as zeros of len(inds)
+            blg.fit_data['o'+str(order)+'_c'+str(ck)] = np.zeros(len(inds))
+
+
 #            ipdb.set_trace()
 #       twaves = blg.wavelens[order][blg.inds['o'+str(order)+'_'+'c'+str(ck)]]
 #            tdata = blg.data[order][blg.inds['o'+str(order)+'_'+'c'+str(ck)]]
@@ -175,30 +214,32 @@ if __name__ == '__main__':
         plt.plot(blg.inds['o3_c'+str(ind)],blg.data[3][blg.inds['o3_c'+str(ind)]]/np.max(blg.data[3]),zorder=2)
 
     """    
+
 #    ipdb.set_trace()
-    all_err_func(p0,full_model,blg,fit_data)
+    all_err_func(p0,full_model,blg)
     print('Skipf: '+str(skipf)+', cklen: '+str(cklen))
     print('Orders being fit:')
     print(blg.fit_orders)
     out=scipy.optimize.leastsq(all_err_func,p0,args=\
-                                   (full_model,blg,fit_data)\
+                                   (full_model,blg)\
                                    ,full_output=1,maxfev=10000)
         
     p1 = out[0]
-    all_err_func(p1,full_model,blg,fit_data,plot_check=True)
-#    jacob=out[1]
+    # plot for the final fit parameters for checking
+#    all_err_func(p1,full_model,blg,plot_check=True)
+    jacob=out[1]
     mydict=out[2]
     message=out[3]
     ier=out[4]
     resids=mydict['fvec']
-#    covar = np.std(resids)**2*jacob
+    covar = np.std(resids)**2*jacob
     chisq = np.sum(resids**2)
     degs_frdm=len(blg.wavelens[order])-len(p1)
     red_chisq = chisq/degs_frdm
     print 'Fitter status:',ier,' Message: ',message
     i=0
     for u in p1:
-        print 'Param: ', i+1, ': ',u,' +/-'#,np.sqrt(covar[i,i])
+        print 'Param: ', i+1, ': ',u,' +/-',np.sqrt(covar[i,i])
         i+=1
     print 'Chisq: ',chisq,' Reduced Chisq: ',red_chisq
 
@@ -206,7 +247,7 @@ if __name__ == '__main__':
     bins = np.arange(len(blg.data[0]))
     offset = 250
     j=0
- #   try:
+
 #    for order in np.arange((len(p1)-2)/2)+2:
     for order in np.arange((len(p1)-2)/3)+2:
         """

@@ -34,7 +34,7 @@ def fit_model(p,full_model,wavelens):
 
 def gaussian(p):
     xip = np.arange(-10,10+.25,.25)
-    return np.exp(-(xip/p[1])**2.)
+    return np.exp((-(xip)**2.)/2.036)
 
 def err_func(p,model,star,order):
     wavelens = star.wavelens[order]
@@ -43,29 +43,59 @@ def err_func(p,model,star,order):
     return (cfit_model(p,model,wavelens)[inds] -\
                 fitspec)/np.sqrt(np.abs(fitspec))
 
-def chunk_err_func(p,model,star,order,chunk):
-    offset = 48
-    c_length = 400
-    #S these are indices that are included in the chunk
-    c_inds = np.arange(offset+chunk*c_length,offset+(chunk+1)*c_length)
-    wavelens = star.wavelens[order][c_inds]
-    #S these are indices OF THE CHUNK that have been sigma clipped
-    inds = star.inds[str(order)+'_'+str(chunk)]
-    fitspec = star.data[order][c_inds][inds]
-
-    return (cfit_model(p,model,wavelens)[inds] -\
-                fitspec)/np.sqrt(np.abs(fitspec))
+def chunk_func(p,model,star,order,chunk):
+    #S get all inds for the chunk
+    ckinds = np.arange(star.cklen)+star.skipf+star.cklen*chunk
+    #S get all wavelens and data for the chunk
+    ckwaves = star.wavelens[order][ckinds]
+    ckdata = star.data[order][ckinds]
+    ckerrs = star.errs[order][ckinds]
     
+    #S get the trimmed indices
+    inds = star.inds['o'+str(order)+'_c'+str(chunk)]
 
+    #S get the wavelengths in the model relevant to the order
+    lowwave = ckwaves.min()-30.
+    highwave = ckwaves.max()+30.
+    low = np.where(full_model.wavelens > lowwave)[0]
+    high = np.where(full_model.wavelens[low] < highwave)[0]
+    # the relevant model inds for the order                             
+    minds = low[high]
+    
+    # get the model wavelens and ipdata for the order                  
+    modwaves = full_model.wavelens[minds]
+    #S convolve the model over the relevant wavelengths
+    modck = mb.numconv(full_model.data[minds],gaussian(p))
+    #S add some wavelength scaling
+    factor = np.polyval(p[:0:-1],modwaves)
+    unbinmodel = factor*modck/np.max(modck)
+    #S rebin the convolved model, and 
+    tmodel = mb.john_rebin(modwaves,unbinmodel,ckwaves,p[0])
+
+    return tmodel
+
+    
+    
+def chunk_err_func(p,model,star,order,chunk):
+    #S get all inds for the chunk
+    ckinds = np.arange(star.cklen)+star.skipf+star.cklen*chunk
+    #S get all wavelens and data for the chunk
+    ckwaves = star.wavelens[order][ckinds]
+    ckdata = star.data[order][ckinds]
+    ckerrs = star.errs[order][ckinds]
+    
+    #S get the trimmed indices
+    inds = star.inds['o'+str(order)+'_c'+str(chunk)]
+    tmodel = chunk_func(p,model,star,order,chunk)
+
+    #s calculate the errors
+    errs = (tmodel[inds] - ckdata[inds])/(ckerrs[inds])
+    return errs
 
 if __name__ == '__main__':
 #    full_model = corr.highres_spec('./t05500_g+0.5_m10p04_hr.fits')
     full_model = corr.highres_spec('./t05500_g+4.0_p00p00_hrplc.fits')
-    suffix = '_norm2'
-    blg = dill.load(open('./BLG0966'+suffix+'.pkl','rb'))
-#    hr = dill.load(open('./HR4963'+suffix+'.pkl','rb'))
-#    hd = dill.load(open('./HD142527'+suffix+'.pkl','rb'))
-#    ipdb.set_trace()
+    blg = corr.multi_spec('./blg0966red_multi.fits')
 
     rv=[]
     rver = []
@@ -81,15 +111,16 @@ if __name__ == '__main__':
     blg.inds = {}
     params_list=[]
 
-    offind = 48
-    offset = 250
-    chunk_length = 400
-    for order in [2,3,4,5]:
-#    for order in np.arange(len(blg.data)-28)+2:
-        for chunk_ind in  np.arange((len(blg.data[order])-offind)/chunk_length):
+    blg.skipf = 48
+    blg.cklen = 400
+    blg.fit_orders = [2,3,4,5,6,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
+    blg.fit_chunks = np.arange((len(blg.data[0])-blg.skipf)/blg.cklen)
+    blg.fit_data = {}
+
+    for order in blg.fit_orders:
+        for chunk in blg.fit_chunks:
 #            ipdb.set_trace()
-            c_inds = np.arange(offind+chunk_ind*chunk_length,\
-                                   offind+(chunk_ind+1)*chunk_length)
+            c_inds = np.arange(blg.cklen)+blg.skipf+blg.cklen*chunk
             chunk_data = blg.data[order][c_inds]
             chunk_waves = blg.wavelens[order][c_inds]
             
@@ -109,13 +140,12 @@ if __name__ == '__main__':
                 
 
 #            ipdb.set_trace()
-            blg.inds[str(order)+'_'+str(chunk_ind)] = inds
+            blg.inds['o'+str(order)+'_c'+str(chunk)] = inds
 
-            p0 = [0.00014,1.,np.median(blg.data[order]),0.,0.]
+            p0 = [0.00014,np.median(blg.data[order]),0.,0.]
 #            ipdb.set_trace()
-#            chunk_err_func(p0,full_model,blg,order,chunk_ind)
             out=scipy.optimize.leastsq(chunk_err_func,p0,args=\
-                                           (full_model,blg,order,chunk_ind),\
+                                           (full_model,blg,order,chunk),\
                                            full_output=1,maxfev=1000)
         
             message=out[3]
@@ -143,7 +173,7 @@ if __name__ == '__main__':
             
             rv.append(p1[0]*2.99e8)
             params_list.append(p1)
-            inds = blg.inds[str(order)+'_'+str(chunk_ind)]
+            inds = blg.inds['o'+str(order)+'_c'+str(chunk)]
             
 #            ipdb.set_trace()
             """
@@ -186,10 +216,16 @@ if __name__ == '__main__':
 #    rver = np.array(rver)/1000.
     plt.plot(np.arange(len(rv)),rv,'o',label='Individual order RV')
     trv = np.concatenate([rv[0:5],rv[7:11],rv[13:]])
-    all_rv = 49.791 + barycorr/1000.
-    plt.plot([0,32],[all_rv,all_rv],'r-',label='RV from simul. fit')
-#    plt.errorbar(np.arange(len(rv)),rv,yerr=rver)
-    plt.xlabel('"Order"')
+    all_rv = np.mean(rv)
+    goodind = np.where(np.abs(all_rv-rv)<3*np.std(rv))
+    rv = rv[goodind]
+    all_rv = np.mean(rv)
+    low = all_rv-np.std(rv)
+    high = all_rv+np.std(rv)
+
+    plt.plot([0,len(blg.fit_chunks)*len(blg.fit_orders)],[all_rv,all_rv],'r-',label='Mean')
+    plt.axhspan(low,high,color='y',alpha=0.5,lw=0)
+    plt.xlabel('"chunk"')
     plt.ylabel('RV [km s$^{-1}$]')
     plt.legend()
     plt.show()
