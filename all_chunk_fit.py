@@ -1,3 +1,5 @@
+#butler 1996 sec 3
+
 #Just need for spectra classes
 import corrspline as corr
 #For rebinning of models
@@ -89,6 +91,8 @@ def all_err_func(p,model,star,plot_check=False):
             print('All edge errors, and the shape')
             print all_edge_errs, np.shape(all_edge_errs)
             plt.plot(blg.wavelens[order],blg.data[order],zorder=1)
+            plt.errorbar(blg.wavelens[order],blg.data[order],blg.errs[order],
+                         zorder=1)
 #            imsave_path = '/Users/samsonjohnson/Desktop/spitzer/blg_ccorr'+\
 #                '/images0412/'+'orders'+str(min(blg.fit_orders))+'_'+\
 #                str(max(blg.fit_orders))+'/order'+str(order)+'cklen'+\
@@ -144,7 +148,7 @@ if __name__ == '__main__':
     # empty dict for data
     blg.fit_data = {}
     # list of orders we want to fit
-    blg.fit_orders = [2,3,4,5,6]#,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
+    blg.fit_orders = [2,3]#,4,5,6]#,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
     # number of chunks we will be fitting based on cklen and skipf
     blg.fit_chunks = np.arange((len(blg.data[0])-skipf)/cklen)
     
@@ -186,23 +190,13 @@ if __name__ == '__main__':
                 newct = len(inds)
                 dct = ct-newct
                 ct = newct
-            # a plot to check
-#            plt.plot(np.arange(len(blg.data[order])),blg.data[order])
-#            plt.plot(inds,blg.data[order][inds])
-#            plt.plot([0,2048],[med+3*std,med+3*std])
-#            plt.show()
-
             # make the list of inds a dict entry for blg for later reference
             blg.inds['o'+str(order)+'_c'+str(ck)] = inds# + skipf + cklen*ck
             # initialize the length of the fit_data as zeros of len(inds)
             blg.fit_data['o'+str(order)+'_c'+str(ck)] = np.zeros(len(inds))
 
 
-#            ipdb.set_trace()
-#       twaves = blg.wavelens[order][blg.inds['o'+str(order)+'_'+'c'+str(ck)]]
-#            tdata = blg.data[order][blg.inds['o'+str(order)+'_'+'c'+str(ck)]]
-#            plt.plot(tdata/np.max(tdata),zorder=2)
-#            tma = 11
+
     
     """
     for debugging
@@ -226,7 +220,7 @@ if __name__ == '__main__':
         
     p1 = out[0]
     # plot for the final fit parameters for checking
-#    all_err_func(p1,full_model,blg,plot_check=True)
+    all_err_func(p1,full_model,blg,plot_check=True)
     jacob=out[1]
     mydict=out[2]
     message=out[3]

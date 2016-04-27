@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import dill
 import scipy
 from scipy import optimize
+import mixmod
 
 
 def cfit_model(p,full_model,wavelens):
@@ -98,6 +99,7 @@ if __name__ == '__main__':
     blg = corr.multi_spec('./blg0966red_multi.fits')
 
     rv=[]
+    rvma=[]
     rver = []
     """
     plt.plot(np.arange(len(blg.data)),np.sqrt(np.median(blg.data,axis=1)),'o')
@@ -113,7 +115,7 @@ if __name__ == '__main__':
 
     blg.skipf = 48
     blg.cklen = 400
-    blg.fit_orders = [2,3,4,5,6,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
+    blg.fit_orders = np.arange(18)+2#[2,3,4,5,6,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
     blg.fit_chunks = np.arange((len(blg.data[0])-blg.skipf)/blg.cklen)
     blg.fit_data = {}
 
@@ -142,7 +144,7 @@ if __name__ == '__main__':
 #            ipdb.set_trace()
             blg.inds['o'+str(order)+'_c'+str(chunk)] = inds
 
-            p0 = [0.00014,np.median(blg.data[order]),0.,0.]
+            p0 = [0.000166,np.median(blg.data[order]),0.,0.]
 #            ipdb.set_trace()
             out=scipy.optimize.leastsq(chunk_err_func,p0,args=\
                                            (full_model,blg,order,chunk),\
@@ -170,23 +172,27 @@ if __name__ == '__main__':
                 print 'Param: ', i+1, ': ',u,' +/-'#,np.sqrt(covar[i,i])
                 i+=1
             print 'Chisq: ',chisq,' Reduced Chisq: ',red_chisq
-            
             rv.append(p1[0]*2.99e8)
+            rvma.append(((p1[0]+1.)**2-1.)*2.99e8/((p1[0]+1.)**2+1.))
+
             params_list.append(p1)
             inds = blg.inds['o'+str(order)+'_c'+str(chunk)]
             
 #            ipdb.set_trace()
             """
-            plt.plot(blg.wavelens[order][c_inds][inds],#offset*order+\
-                         cfit_model(p0,full_model,blg.wavelens[order])[c_inds][inds],\
-                         'g',zorder=2)
+#            plt.plot(blg.wavelens[order][c_inds][inds],#offset*order+\
+#                         cfit_model(p0,full_model,blg.wavelens[order])[c_inds][inds],\
+#                         'g',zorder=2)
             plt.plot(blg.wavelens[order][c_inds][inds],#offset*order+\
                          cfit_model(p1,full_model,blg.wavelens[order])[c_inds][inds],\
                          'r',zorder=2,linewidth=2)
             plt.plot(blg.wavelens[order][c_inds][inds],#offset*order+\
                          blg.data[order][c_inds][inds],'b',zorder=1)
-            """
             
+            plt.errorbar(blg.wavelens[order][c_inds][inds],\
+                             blg.data[order][c_inds][inds],\
+                             'b',zorder=1)
+            """
         """
         plt.plot(blg.wavelens[order][inds],\
                      blg.data[order][inds],'b',zorder=1)
@@ -205,28 +211,52 @@ if __name__ == '__main__':
                      'r',zorder=2)
         
         """
-    plt.xlabel('Wavelength')
-    plt.ylabel('Counts')#''Arbitrary')
-#    plt.axis([8400,9000,0,500])
-    plt.show()
 
-    barycorr = 24167.
+
+    barycorr = -7204.6
     ipdb.set_trace()
     rv = (np.array(rv)+barycorr)/1000.
+#    rvma = (np.array(rvma)+barycorr)/1000.
 #    rver = np.array(rver)/1000.
     plt.plot(np.arange(len(rv)),rv,'o',label='Individual order RV')
-    trv = np.concatenate([rv[0:5],rv[7:11],rv[13:]])
-    all_rv = np.mean(rv)
-    goodind = np.where(np.abs(all_rv-rv)<3*np.std(rv))
-    rv = rv[goodind]
-    all_rv = np.mean(rv)
-    low = all_rv-np.std(rv)
-    high = all_rv+np.std(rv)
+#    plt.plot(np.arange(len(rvma)),rvma,'o',label='Individual order RVMA')
+#    trv = np.concatenate([rv[0:5],rv[7:11],rv[13:]])
+
+    mp0 = np.array([42.,5.,.01,3.])
+    max = scipy.optimize.fmin(mixmod.maxlikelihood,mp0,args=(rv,))
+
+    all_rv = max[0]
+
+    low = all_rv-max[1]
+    low1 = all_rv-max[1]*max[3]
+    high = all_rv+max[1]
+    high1 = all_rv+max[1]*max[3]
 
     plt.plot([0,len(blg.fit_chunks)*len(blg.fit_orders)],[all_rv,all_rv],'r-',label='Mean')
-    plt.axhspan(low,high,color='y',alpha=0.5,lw=0)
+    plt.axhspan(low,high,color='y',alpha=0.5,lw=0,label='one sigma')
+    plt.axhspan(low1,high1,color='r',alpha=0.5,lw=0,label='one sigma*gamma')
     plt.xlabel('"chunk"')
     plt.ylabel('RV [km s$^{-1}$]')
     plt.legend()
     plt.show()
+
+
     ipdb.set_trace()
+    while True:
+        xfit = np.linspace(0,100,1000)
+        plt.plot(xfit,mixmod.modelpdf(max,xfit),label='Total pdf')
+        plt.plot(xfit,(1-max[2])*mixmod.modelpdf([max[0],max[1],0.,max[3]],xfit),\
+                     label='"Good" pdf')
+        plt.plot(xfit,max[2]*mixmod.modelpdf([max[0],max[1],1.,max[3]],xfit),\
+                     label='"Bad" pdf')
+        plt.legend()
+        bins = int(raw_input('bins(90?):'))
+        plt.hist(rv,bins=bins,normed=1)
+        plt.show()
+#        ipdb.set_trace()
+
+    ipdb.set_trace()
+    t =5
+
+    
+    
