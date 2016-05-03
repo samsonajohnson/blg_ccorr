@@ -7,9 +7,10 @@ import model_bin as mb
 import ipdb
 import numpy as np
 import matplotlib.pyplot as plt
-import dill
 import scipy
 from scipy import optimize
+import ghip
+
 
 def cfit_model(p,model_ck,wavelens,order):
     factor = np.polyval(p[:1:-1],full_model.wavelens)
@@ -19,7 +20,7 @@ def cfit_model(p,model_ck,wavelens,order):
 
 
 def gaussian(p):
-    xip = np.arange(-10,10+.25,.25)
+    xip = np.arange(-50,50+.25,.25)
     if p[1] < 1.:
         p[1] = 1.
     return np.exp(-(xip)**2./p[1])
@@ -30,7 +31,7 @@ def all_err_func(p,model,star,plot_check=False):
     all_edge_errs = np.array([])
     j=0
     skipf = 48
-    cklen = 400
+    cklen = 200
 #    print p[0], p[1]
 
     #S convolve the entire model spectrum, want to trim to just relevant wave-
@@ -91,8 +92,8 @@ def all_err_func(p,model,star,plot_check=False):
             print('All edge errors, and the shape')
             print all_edge_errs, np.shape(all_edge_errs)
             plt.plot(blg.wavelens[order],blg.data[order],zorder=1)
-            plt.errorbar(blg.wavelens[order],blg.data[order],blg.errs[order],
-                         zorder=1)
+#            plt.errorbar(blg.wavelens[order],blg.data[order],blg.errs[order],
+#                         zorder=1)
 #            imsave_path = '/Users/samsonjohnson/Desktop/spitzer/blg_ccorr'+\
 #                '/images0412/'+'orders'+str(min(blg.fit_orders))+'_'+\
 #                str(max(blg.fit_orders))+'/order'+str(order)+'cklen'+\
@@ -134,9 +135,10 @@ def err_func(p,model,wavelens,spec):
 
 if __name__ == '__main__':
     # get the full highres model spectrum class
-    full_model = corr.highres_spec('./t05500_g+4.0_p00p00_hrplc.fits')
+#    full_model = corr.highres_spec('./t05500_g+4.0_p00p00_hrplc.fits')
     # the blg spectrum class
     blg = corr.multi_spec('./blg0966red_multi.fits')
+    full_model = corr.phe_spec('./lte05500-4.00-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits','./WAVE_PHOENIX-ACES-AGSS-COND-2011.fits',minwave=min(blg.wavelens[-1])-500.,maxwave=max(blg.wavelens[0])+500.)
     # the simultaneous fit parameters, z and ip width (just a gaussian)
     p0 = [0.0001,1.]
     # the empty dictionary for putting the trimmed indices
@@ -144,11 +146,11 @@ if __name__ == '__main__':
     # the pixels to sjip at the beginnning of each order
     skipf = 48
     # the length of chunk we are using
-    cklen = 400
+    cklen = 200
     # empty dict for data
     blg.fit_data = {}
     # list of orders we want to fit
-    blg.fit_orders = [2,3]#,4,5,6]#,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
+    blg.fit_orders = np.arange(4)#[2,3]#,4,5,6]#,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
     # number of chunks we will be fitting based on cklen and skipf
     blg.fit_chunks = np.arange((len(blg.data[0])-skipf)/cklen)
     
@@ -220,20 +222,20 @@ if __name__ == '__main__':
         
     p1 = out[0]
     # plot for the final fit parameters for checking
-    all_err_func(p1,full_model,blg,plot_check=True)
+#    all_err_func(p1,full_model,blg,plot_check=True)
     jacob=out[1]
     mydict=out[2]
     message=out[3]
     ier=out[4]
     resids=mydict['fvec']
-    covar = np.std(resids)**2*jacob
+#    covar = np.std(resids)**2*jacob
     chisq = np.sum(resids**2)
     degs_frdm=len(blg.wavelens[order])-len(p1)
     red_chisq = chisq/degs_frdm
     print 'Fitter status:',ier,' Message: ',message
     i=0
     for u in p1:
-        print 'Param: ', i+1, ': ',u,' +/-',np.sqrt(covar[i,i])
+        print 'Param: ', i+1, ': ',u,' +/-',#np.sqrt(covar[i,i])
         i+=1
     print 'Chisq: ',chisq,' Reduced Chisq: ',red_chisq
 

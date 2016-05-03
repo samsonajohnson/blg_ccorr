@@ -28,6 +28,26 @@ class highres_spec:
                     cs_data,\
                     kind = 'cubic')    
         return spline
+
+
+class phe_spec:
+    def __init__(self,specfits,wavefits,minwave=False,maxwave=False):
+        spec_hdu = fits.open(specfits)
+        self.data = spec_hdu[0].data
+        wave_hdu = fits.open(wavefits)
+        vac_waves = wave_hdu[0].data
+        sigma_2 = (1.e4/vac_waves)**2
+        f = 1.0 + 0.05792105/(238.0185-sigma_2)+0.00167917/(57.362-sigma_2)
+#        ipdb.set_trace()
+        self.wavelens = vac_waves/f
+        if minwave and maxwave:
+
+            low_inds = np.where(self.wavelens>minwave)[0]
+            high_inds = np.where(self.wavelens[low_inds]<maxwave)[0]
+            minds = low_inds[high_inds]
+            self.wavelens = self.wavelens[minds]
+            self.data = self.data[minds]
+
         
         
         
