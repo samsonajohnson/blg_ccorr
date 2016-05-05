@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import scipy
 from scipy import optimize
 import ghip
+import lmfit
 
 
 def cfit_model(p,model_ck,wavelens,order):
@@ -19,25 +20,25 @@ def cfit_model(p,model_ck,wavelens,order):
     return model
 
 
-def gaussian(p):
+def gaussian(ipwidth):
     xip = np.arange(-50,50+.25,.25)
-    if p[1] < 1.:
-        p[1] = 1.
-    return np.exp(-(xip)**2./p[1])
+    return np.exp(-(xip)**2./ipwidth)
 
 
 def all_err_func(p,model,star,plot_check=False):
+    z = p['z'].value
+    ipwidth = p['ipwidth'].value
     all_errs = np.array([])
     all_edge_errs = np.array([])
     j=0
     skipf = 48
-    cklen = 200
+    cklen = 400
 #    print p[0], p[1]
 
     #S convolve the entire model spectrum, want to trim to just relevant wave-
     #S lengths, as well as only when the ip changes. 
-    full_model.ipdata = mb.numconv(full_model.data,gaussian(p))
-    for order in star.fit_orders: #np.arange(len(blg.data)-19)+2:
+    full_model.ipdata = mb.numconv(full_model.data,gaussian(ipwidth))
+    for order in star.fit_orders: 
         for ck in star.fit_chunks:
             #S indices for all the wavelengths in a chunk, for rebinning 
             #S purposes
@@ -59,12 +60,15 @@ def all_err_func(p,model,star,plot_check=False):
             modwaves = full_model.wavelens[minds]
             modck = full_model.ipdata[minds]
             #S the index 'zero' point
-            j = (order-np.min(star.fit_orders))*5+ck
-            temp_params = [p[0],p[1],p[3*j+2],p[3*j+3],p[3*j+4]]
+            c0 = p['c0_o'+str(order)+'_c'+str(ck)].value
+            c1 = p['c1_o'+str(order)+'_c'+str(ck)].value
+            c2 = p['c2_o'+str(order)+'_c'+str(ck)].value
+#            j = (order-np.min(star.fit_orders))*5+ck
+#            temp_params = [p[0],p[1],p[3*j+2],p[3*j+3],p[3*j+4]]
 
-            factor = np.polyval(temp_params[:1:-1],modwaves)
+            factor = np.polyval([c2,c1,c0],modwaves)
             unbinmodel = factor*modck/np.max(modck)
-            tmodel = mb.john_rebin(modwaves,unbinmodel,ckwaves,p[0])
+            tmodel = mb.john_rebin(modwaves,unbinmodel,ckwaves,z)
             
             inds = blg.inds['o'+str(order)+'_c'+str(ck)]
             star.fit_data['o'+str(order)+'_c'+str(ck)] = tmodel[inds]
@@ -135,22 +139,26 @@ def err_func(p,model,wavelens,spec):
 
 if __name__ == '__main__':
     # get the full highres model spectrum class
-    full_model = corr.highres_spec('./t05500_g+4.0_p00p00_hrplc.fits')
+#    full_model = corr.highres_spec('./t05500_g+4.0_p00p00_hrplc.fits')
     # the blg spectrum class
     blg = corr.multi_spec('./blg0966red_multi.fits')
-#    full_model = corr.phe_spec('./lte05500-4.00-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits','./WAVE_PHOENIX-ACES-AGSS-COND-2011.fits',minwave=min(blg.wavelens[-1])-500.,maxwave=max(blg.wavelens[0])+500.)
+    full_model = corr.phe_spec('./lte05500-4.00-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits','./WAVE_PHOENIX-ACES-AGSS-COND-2011.fits',minwave=min(blg.wavelens[-1])-500.,maxwave=max(blg.wavelens[0])+500.)
     # the simultaneous fit parameters, z and ip width (just a gaussian)
-    p0 = [0.0001,1.]
+#    p0 = [0.0001,1.]
+    ipdb.set_trace()
+    p0 = lmfit.Parameters()
+    p0.add('z',value=0.00016)
+    p0.add('ipwidth',value=20.)
     # the empty dictionary for putting the trimmed indices
     blg.inds={}
     # the pixels to sjip at the beginnning of each order
     skipf = 48
     # the length of chunk we are using
-    cklen = 200
+    cklen = 400
     # empty dict for data
     blg.fit_data = {}
     # list of orders we want to fit
-    blg.fit_orders = np.arange(4)+2#[2,3]#,4,5,6]#,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
+    blg.fit_orders = np.arange(6)+2#[2,3]#,4,5,6]#,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
     # number of chunks we will be fitting based on cklen and skipf
     blg.fit_chunks = np.arange((len(blg.data[0])-skipf)/cklen)
     
@@ -167,9 +175,12 @@ if __name__ == '__main__':
             ckdata = odata[ck*cklen+skipf:(ck+1)*cklen+skipf]
             # getting initial guess for fit parameters, assmuming a flat 
             # wavelength dependence
-            p0.append(np.median(ckdata))
-            p0.append(0.)
-            p0.append(0.)
+            p0.add('c0_o'+str(order)+'_c'+str(ck),value=np.median(ckdata))
+            p0.add('c1_o'+str(order)+'_c'+str(ck),value=0.0)
+            p0.add('c2_o'+str(order)+'_c'+str(ck),value=0.0)
+#            p0.append(np.median(ckdata))
+#            p0.append(0.)
+#            p0.append(0.)
 
             # indices greater than zero
             zinds = np.where(ckdata>0.)[0]
@@ -213,33 +224,13 @@ if __name__ == '__main__':
 
 #    ipdb.set_trace()
     all_err_func(p0,full_model,blg)
-    print('Skipf: '+str(skipf)+', cklen: '+str(cklen))
-    print('Orders being fit:')
-    print(blg.fit_orders)
-    out=scipy.optimize.leastsq(all_err_func,p0,args=\
-                                   (full_model,blg)\
-                                   ,full_output=1,maxfev=10000)
-        
-    p1 = out[0]
-    # plot for the final fit parameters for checking
-#    all_err_func(p1,full_model,blg,plot_check=True)
-    jacob=out[1]
-    mydict=out[2]
-    message=out[3]
-    ier=out[4]
-    resids=mydict['fvec']
-#    covar = np.std(resids)**2*jacob
-    chisq = np.sum(resids**2)
-    degs_frdm=len(blg.wavelens[order])-len(p1)
-    red_chisq = chisq/degs_frdm
-    print 'Fitter status:',ier,' Message: ',message
-    i=0
-    for u in p1:
-        print 'Param: ', i+1, ': ',u,' +/-',#np.sqrt(covar[i,i])
-        i+=1
-    print 'Chisq: ',chisq,' Reduced Chisq: ',red_chisq
-
+#    print('Skipf: '+str(skipf)+', cklen: '+str(cklen))
+#    print('Orders being fit:')
+#    print(blg.fit_orders)
+    result = lmfit.minimize(all_err_func,p0,args=(full_model,blg),method='leastsq')
+    lmfit.report_fit(result,show_correl=False)
     ipdb.set_trace()
+
     bins = np.arange(len(blg.data[0]))
     offset = 250
     j=0

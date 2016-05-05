@@ -9,7 +9,7 @@ import dill
 import scipy
 from scipy import optimize
 import mixmod
-
+import lmfit
 
 def cfit_model(p,full_model,wavelens):
     #S make a chunk of the model shifted by doppler factor z
@@ -33,9 +33,9 @@ def fit_model(p,full_model,wavelens):
     factor = np.polyval(p[:0:-1],wavelens)
     return factor*model/np.max(model) 
 
-def gaussian(p):
+def gaussian(ipwidth):
     xip = np.arange(-50,50+.25,.25)
-    return np.exp((-(xip)**2.)/4.172)#/55.733)#4.172)
+    return np.exp((-(xip)**2.)/ipwidth)
 
 def err_func(p,model,star,order):
     wavelens = star.wavelens[order]
@@ -45,6 +45,12 @@ def err_func(p,model,star,order):
                 fitspec)/np.sqrt(np.abs(fitspec))
 
 def chunk_func(p,model,star,order,chunk):
+    z = p['z'].value
+    ipwidth = p['ipwidth'].value
+    c0 = p['c0'].value
+    c1 = p['c1'].value
+    c2 = p['c2'].value
+
     #S get all inds for the chunk
     ckinds = np.arange(star.cklen)+star.skipf+star.cklen*chunk
     #S get all wavelens and data for the chunk
@@ -66,12 +72,12 @@ def chunk_func(p,model,star,order,chunk):
     # get the model wavelens and ipdata for the order                  
     modwaves = full_model.wavelens[minds]
     #S convolve the model over the relevant wavelengths
-    modck = mb.numconv(full_model.data[minds],gaussian(p))
+    modck = mb.numconv(full_model.data[minds],gaussian(ipwidth))
     #S add some wavelength scaling
-    factor = np.polyval(p[:0:-1],modwaves)
+    factor = np.polyval([c2,c1,c0],modwaves)
     unbinmodel = factor*modck/np.max(modck)
     #S rebin the convolved model, and 
-    tmodel = mb.john_rebin(modwaves,unbinmodel,ckwaves,p[0])
+    tmodel = mb.john_rebin(modwaves,unbinmodel,ckwaves,z)
 
     return tmodel
 
@@ -115,8 +121,8 @@ if __name__ == '__main__':
     params_list=[]
 
     blg.skipf = 48
-    blg.cklen = 300
-    blg.fit_orders = np.arange(10)+2
+    blg.cklen = 400
+    blg.fit_orders = np.arange(8)+2
     blg.fit_chunks = np.arange((len(blg.data[0])-blg.skipf)/blg.cklen)
     blg.fit_data = {}
     for order in blg.fit_orders:
@@ -144,7 +150,18 @@ if __name__ == '__main__':
 
 
             blg.inds['o'+str(order)+'_c'+str(chunk)] = inds
-            p0 = [0.000163,np.median(blg.data[order]),0.,0.]
+            p0 = lmfit.Parameters()
+            p0.add('z',value=0.000163)
+            if full_model.name == 'highres':
+                p0.add('ipwidth',value=2.66,vary=False)
+            if full_model.name == 'phoenix':
+                p0.add('ipwidth',value=33.33,vary=False)
+            p0.add('c0',value=np.median(blg.data[order]))
+            p0.add('c1',value=0.0)
+            p0.add('c2',value=0.0)
+
+            result = lmfit.minimize(chunk_err_func,p0,args=(full_model,blg,order,chunk),method='leastsq')
+            print lmfit.fit_report(result,show_correl=False)
             """
             while True:
                 p0 = [0.000163,np.median(blg.data[order]),0.,0.]
@@ -161,40 +178,15 @@ if __name__ == '__main__':
                 plt.show()
 #            ipdb.set_trace()
             """
-#            ipdb.set_trace()
-            out=scipy.optimize.leastsq(chunk_err_func,p0,args=\
-                                           (full_model,blg,order,chunk),\
-                                           full_output=1,maxfev=10000)
-        
-            message=out[3]
-            ier=out[4]
-            print 'Fitter status:',ier,' Message: ',message        
-            p1 = out[0]
-            
-            #        if out[1] == None:
-            #            ipdb.set_trace()
-            #            continue
-            jacob=out[1]
-            mydict=out[2]
-            
-            resids=mydict['fvec']
-            covar = np.std(resids)**2*jacob
-            chisq = np.sum(resids**2)
-            degs_frdm=len(blg.wavelens[order])-len(p1)
-            red_chisq = chisq/degs_frdm
-            
-            i=0
-            for u in p1:
-                print 'Param: ', i+1, ': ',u,' +/-',np.sqrt(covar[i,i])
-                i+=1
-            print 'Chisq: ',chisq,' Reduced Chisq: ',red_chisq
-            rv.append(p1[0]*2.99e8)
 
-            rver.append(np.sqrt(covar[0,0])*2.99e8)
-            rvma.append(((p1[0]+1.)**2-1.)*2.99e8/((p1[0]+1.)**2+1.))
+            rv.append(result.params['z'].value*2.99e8)
 
-            params_list.append(p1)
+            rver.append(result.params['z'].stderr*2.99e8)
+#            rvma.append(((p1[0]+1.)**2-1.)*2.99e8/((p1[0]+1.)**2+1.))
+
+#            params_list.append(p1)
             inds = blg.inds['o'+str(order)+'_c'+str(chunk)]
+
             """
             ipdb.set_trace()
             t0model = chunk_func(p0,full_model,blg,order,chunk)

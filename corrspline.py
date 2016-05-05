@@ -14,6 +14,7 @@ class highres_spec:
     def __init__(self,fits_name):
         self.hdu = fits.open(fits_name)
         self.data = self.hdu[0].data
+        self.name = 'highres'
         #S hard coding in the wavelengths
         self.wavelens = np.linspace(2500.,9000.,325001)
     
@@ -34,6 +35,7 @@ class phe_spec:
     def __init__(self,specfits,wavefits,minwave=False,maxwave=False):
         spec_hdu = fits.open(specfits)
         self.data = spec_hdu[0].data
+        self.name = 'phoenix'
         wave_hdu = fits.open(wavefits)
         vac_waves = wave_hdu[0].data
         sigma_2 = (1.e4/vac_waves)**2
