@@ -135,10 +135,10 @@ def err_func(p,model,wavelens,spec):
 
 if __name__ == '__main__':
     # get the full highres model spectrum class
-#    full_model = corr.highres_spec('./t05500_g+4.0_p00p00_hrplc.fits')
+    full_model = corr.highres_spec('./t05500_g+4.0_p00p00_hrplc.fits')
     # the blg spectrum class
     blg = corr.multi_spec('./blg0966red_multi.fits')
-    full_model = corr.phe_spec('./lte05500-4.00-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits','./WAVE_PHOENIX-ACES-AGSS-COND-2011.fits',minwave=min(blg.wavelens[-1])-500.,maxwave=max(blg.wavelens[0])+500.)
+#    full_model = corr.phe_spec('./lte05500-4.00-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits','./WAVE_PHOENIX-ACES-AGSS-COND-2011.fits',minwave=min(blg.wavelens[-1])-500.,maxwave=max(blg.wavelens[0])+500.)
     # the simultaneous fit parameters, z and ip width (just a gaussian)
     p0 = [0.0001,1.]
     # the empty dictionary for putting the trimmed indices
@@ -150,7 +150,7 @@ if __name__ == '__main__':
     # empty dict for data
     blg.fit_data = {}
     # list of orders we want to fit
-    blg.fit_orders = np.arange(4)#[2,3]#,4,5,6]#,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
+    blg.fit_orders = np.arange(4)+2#[2,3]#,4,5,6]#,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
     # number of chunks we will be fitting based on cklen and skipf
     blg.fit_chunks = np.arange((len(blg.data[0])-skipf)/cklen)
     

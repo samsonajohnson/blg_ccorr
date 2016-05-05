@@ -35,7 +35,7 @@ def fit_model(p,full_model,wavelens):
 
 def gaussian(p):
     xip = np.arange(-50,50+.25,.25)
-    return np.exp((-(xip)**2.)/55.733)#2.036)
+    return np.exp((-(xip)**2.)/4.172)#/55.733)#4.172)
 
 def err_func(p,model,star,order):
     wavelens = star.wavelens[order]
@@ -95,9 +95,9 @@ def chunk_err_func(p,model,star,order,chunk):
 
 if __name__ == '__main__':
 #    full_model = corr.highres_spec('./t05500_g+0.5_m10p04_hr.fits')
-#    full_model = corr.highres_spec('./t05500_g+4.0_p00p00_hrplc.fits')
+    full_model = corr.highres_spec('./t05500_g+4.0_p00p00_hrplc.fits')
     blg = corr.multi_spec('./blg0966red_multi.fits')
-    full_model = corr.phe_spec('./lte05500-4.00-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits','./WAVE_PHOENIX-ACES-AGSS-COND-2011.fits',minwave=min(blg.wavelens[-1])-500.,maxwave=max(blg.wavelens[0])+500.)
+#    full_model = corr.phe_spec('./lte05500-4.00-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits','./WAVE_PHOENIX-ACES-AGSS-COND-2011.fits',minwave=min(blg.wavelens[-1])-500.,maxwave=max(blg.wavelens[0])+500.)
 #    ipdb.set_trace()
     rv=[]
     rvma=[]
@@ -109,14 +109,14 @@ if __name__ == '__main__':
     plt.show()
     ipdb.set_trace()
     """
-#    ipdb.set_trace()
+    ipdb.set_trace()
     params = []
     blg.inds = {}
     params_list=[]
 
     blg.skipf = 48
-    blg.cklen = 285
-    blg.fit_orders = np.arange(20)#[2,3,4,5,6,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
+    blg.cklen = 300
+    blg.fit_orders = np.arange(10)+2
     blg.fit_chunks = np.arange((len(blg.data[0])-blg.skipf)/blg.cklen)
     blg.fit_data = {}
     for order in blg.fit_orders:
