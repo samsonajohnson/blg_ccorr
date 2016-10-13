@@ -2,6 +2,7 @@ import numpy as np
 import corrspline as corr
 #For rebinning of models                                                        
 import model_bin as mb
+import matplotlib
 import ipdb
 import matplotlib.pyplot as plt
 import dill
@@ -29,14 +30,20 @@ if __name__ == '__main__':
     # number of chunks we will be fitting based on cklen and skipf
     blg.fit_chunks = np.arange((len(blg.data[0])-skipf)/cklen)
 
-    snr = []
+    snr1 = []
+    snr2 = []
     for order in range(len(blg.data)):#blg.fit_orders:
         print np.median(blg.data[order]), np.sqrt(np.median(blg.data[order])),\
             np.median(blg.errs[order])
-        
-        snr.append(np.sqrt(np.median(blg.data[order])))
+        snr2.append(np.median(blg.data[order])/np.median(blg.errs[order]))
+        snr1.append(np.sqrt(np.median(blg.data[order])))
 #        plt.plot(blg.wavelens[order],blg.data[order],'.',zorder=2)
 #        plt.errorbar(blg.wavelens[order],blg.data[order],blg.errs[order],\
 #                         zorder=1,fmt='')
-    plt.plot(snr,'o')
+#    plt.plot(snr1,'o',label='$\sqrt{ median(data)}$')
+    plt.plot(snr2,'ko',ms=8)#,label='$median(data)/median(noise)$')
+    plt.xlabel('Order')
+    plt.ylabel('SNR')
+    plt.grid(True)
+    matplotlib.rcParams.update({'font.size': 22})
     plt.show()

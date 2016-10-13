@@ -20,24 +20,26 @@ def cfit_model(p,model_ck,wavelens,order):
     return model
 
 
-def gaussian(ipwidth):
+def gaussian(amp,ipwidth):
     xip = np.arange(-50,50+.25,.25)
-    return np.exp(-(xip)**2./ipwidth)
+    return amp*np.exp(-(xip)**2./ipwidth)
 
 
 def all_err_func(p,model,star,plot_check=False):
     z = p['z'].value
+    amp = p['amp'].value
     ipwidth = p['ipwidth'].value
     all_errs = np.array([])
     all_edge_errs = np.array([])
     j=0
-    skipf = 48
-    cklen = 400
+    skipf = 148
+    cklen = 300
 #    print p[0], p[1]
 
     #S convolve the entire model spectrum, want to trim to just relevant wave-
     #S lengths, as well as only when the ip changes. 
-    full_model.ipdata = mb.numconv(full_model.data,gaussian(ipwidth))
+    ipdb.set_trace()
+    full_model.ipdata = mb.numconv(full_model.data,gaussian(amp,ipwidth))
     for order in star.fit_orders: 
         for ck in star.fit_chunks:
             #S indices for all the wavelengths in a chunk, for rebinning 
@@ -139,26 +141,29 @@ def err_func(p,model,wavelens,spec):
 
 if __name__ == '__main__':
     # get the full highres model spectrum class
-#    full_model = corr.highres_spec('./t05500_g+4.0_p00p00_hrplc.fits')
+    full_model = corr.highres_spec('./t05500_g+4.5_p00p00_hrplc.fits')
+#    full_model = corr.highres_spec('./t06500_g+4.0_p00p00_hrplc.fits')
     # the blg spectrum class
     blg = corr.multi_spec('./blg0966red_multi.fits')
-    full_model = corr.phe_spec('./lte05500-4.00-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits','./WAVE_PHOENIX-ACES-AGSS-COND-2011.fits',minwave=min(blg.wavelens[-1])-500.,maxwave=max(blg.wavelens[0])+500.)
+#    full_model = corr.phe_spec('./lte05500-4.50-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits','./WAVE_PHOENIX-ACES-AGSS-COND-2011.fits',minwave=min(blg.wavelens[-1])-500.,maxwave=max(blg.wavelens[0])+500.)
+#    full_model = corr.phe_spec('./lte06300-4.00-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits','./WAVE_PHOENIX-ACES-AGSS-COND-2011.fits',minwave=min(blg.wavelens[-1])-500.,maxwave=max(blg.wavelens[0])+500.)
     # the simultaneous fit parameters, z and ip width (just a gaussian)
 #    p0 = [0.0001,1.]
     ipdb.set_trace()
     p0 = lmfit.Parameters()
     p0.add('z',value=0.00016)
-    p0.add('ipwidth',value=20.)
+    p0.add('amp',value=-1.)
+    p0.add('ipwidth',value=20.,min=1.,max=50.)
     # the empty dictionary for putting the trimmed indices
     blg.inds={}
     # the pixels to sjip at the beginnning of each order
-    skipf = 48
+    skipf = 148
     # the length of chunk we are using
-    cklen = 400
+    cklen = 300
     # empty dict for data
     blg.fit_data = {}
     # list of orders we want to fit
-    blg.fit_orders = np.arange(6)+2#[2,3]#,4,5,6]#,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
+    blg.fit_orders = np.arange(2)+2#[2,3]#,4,5,6]#,7,8,9,10,11,12]#np.arange(len(blg.data)-19)+2
     # number of chunks we will be fitting based on cklen and skipf
     blg.fit_chunks = np.arange((len(blg.data[0])-skipf)/cklen)
     
@@ -230,7 +235,9 @@ if __name__ == '__main__':
     result = lmfit.minimize(all_err_func,p0,args=(full_model,blg),method='leastsq')
     lmfit.report_fit(result,show_correl=False)
     ipdb.set_trace()
+    all_err_func(result.params,full_model,blg,plot_check=True)
 
+    ipdb.set_trace()
     bins = np.arange(len(blg.data[0]))
     offset = 250
     j=0
