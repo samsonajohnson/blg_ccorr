@@ -106,7 +106,7 @@ if __name__ == '__main__':
     blg = corr.multi_spec('./blg0966red_multi.fits')
 #    full_model = corr.phe_spec('./lte05500-4.50-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits','./WAVE_PHOENIX-ACES-AGSS-COND-2011.fits',minwave=min(blg.wavelens[-1])-500.,maxwave=max(blg.wavelens[0])+500.)
     full_model = corr.phe_spec('./lte06300-4.00-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits','./WAVE_PHOENIX-ACES-AGSS-COND-2011.fits',minwave=min(blg.wavelens[-1])-500.,maxwave=max(blg.wavelens[0])+500.)
-    ipdb.set_trace()
+
     rv=[]
     rvma=[]
     rver = []
@@ -117,13 +117,13 @@ if __name__ == '__main__':
     plt.show()
     ipdb.set_trace()
     """
-    ipdb.set_trace()
+
     params = []
     blg.inds = {}
     params_list=[]
 
-    blg.skipf = 48#100
-    blg.cklen = 400#278
+    blg.skipf = 104#48#100
+    blg.cklen = 368#400#278
     numcks = 8
     if 'lte' in full_model.name:
         blg.fit_orders = np.arange(numcks)
@@ -166,9 +166,9 @@ if __name__ == '__main__':
             if full_model.name == 't06500':
                 p0.add('ipwidth',value=1.01,min=1,max=50,vary=False)
             if full_model.name == 'lte05500':
-                p0.add('ipwidth',value=32.17,vary=False)
+                p0.add('ipwidth',value=30.16,vary=False) #28.97+/-1.2
             if full_model.name == 'lte06300':
-                p0.add('ipwidth',value=17.56,vary=False)
+                p0.add('ipwidth',value=16.33,vary=False)
             p0.add('c0',value=np.median(blg.data[order]))
             p0.add('c1',value=0.0)
             p0.add('c2',value=0.0)
@@ -198,18 +198,21 @@ if __name__ == '__main__':
     #   ipdb.set_trace()
     #    plt.gca().set_color_cycle([colormap(i) for i in np.linspace(0, 0.9, num_plots)])
 
-
-    for order in blg.fit_orders:
-        for chunk in blg.fit_chunks:
+    print(len(rv),len(rver))
+    for ord in blg.fit_orders:
+        print ord
+        for chunk in blg.fit_chunks[::-1]:
+            order = ord*len(blg.fit_chunks)
+            print(order+chunk)
             rec_rv = rv[order+chunk]
             rec_rv_err = rver[order+chunk]
             c_inds = np.arange(blg.cklen)+blg.skipf+blg.cklen*chunk
-            chunk_waves = blg.wavelens[order][c_inds]
+            chunk_waves = blg.wavelens[ord][c_inds]
 
-            table_str = '%i & %i & %.2f & %.2f & %0.1f & %.1f\\ \n'%(order,chunk,np.min(chunk_waves),np.max(chunk_waves),rec_rv,rec_rv_err)
+            table_str = '%i & %i & %.2f & %.2f & %0.1f & %.1f\\ \n'%(ord,chunk,np.min(chunk_waves),np.max(chunk_waves),rec_rv,rec_rv_err)
             table_lines.append(table_str)
 
-    ipdb.set_trace()
+#    ipdb.set_trace()
     with open('tablefile.tex','w') as tfile:
         tfile.write('\begin{tabular}\n')
         tfile.write('\hline \n')
@@ -223,8 +226,10 @@ if __name__ == '__main__':
         lowind  = or_num*len(blg.fit_chunks)
         upind = lowind + len(blg.fit_chunks)
         print lowind, upind
-        rvax1.plot(np.arange(lowind,upind),rv[lowind:upind],'s',label='Chunk from order ' + str(or_num),color=colormap(np.linspace(.9,.05,num_plots)[or_num]),ms=10,zorder=2)
-        rvax1.errorbar(np.arange(len(rv)),rv,yerr=rver,linestyle='None')
+        print len(np.arange(lowind,upind)), len(rv[lowind:upind][::-1])
+        print (np.arange(lowind,upind)), (rv[lowind:upind:-1])
+        rvax1.plot(np.arange(lowind,upind),rv[lowind:upind][::-1],'s',label='Chunk from order ' + str(or_num),color=colormap(np.linspace(.9,.05,num_plots)[or_num]),ms=10,zorder=2)
+        rvax1.errorbar(np.arange(lowind,upind),rv[lowind:upind][::-1],yerr=rver[lowind:upind][::-1],linestyle='None',color='black')
 #    plt.plot(np.arange(len(rvma)),rvma,'o',label='Individual order RVMA')
 #    trv = np.concatenate([rv[0:5],rv[7:11],rv[13:]])
 

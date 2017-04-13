@@ -32,15 +32,18 @@ if __name__ == '__main__':
 
     snr1 = []
     snr2 = []
+    snr3 = []
     for order in range(len(blg.data)):#blg.fit_orders:
         print np.median(blg.data[order]), np.sqrt(np.median(blg.data[order])),\
             np.median(blg.errs[order])
+        snr3.append(np.median(blg.data[order]/blg.errs[order]))
         snr2.append(np.median(blg.data[order])/np.median(blg.errs[order]))
         snr1.append(np.sqrt(np.median(blg.data[order])))
 #        plt.plot(blg.wavelens[order],blg.data[order],'.',zorder=2)
 #        plt.errorbar(blg.wavelens[order],blg.data[order],blg.errs[order],\
 #                         zorder=1,fmt='')
 #    plt.plot(snr1,'o',label='$\sqrt{ median(data)}$')
+    plt.plot(snr3,'bo',ms=8)#,label='$median(data/noise)$')
     plt.plot(snr2,'ko',ms=8)#,label='$median(data)/median(noise)$')
     plt.xlabel('Order')
     plt.ylabel('SNR')
